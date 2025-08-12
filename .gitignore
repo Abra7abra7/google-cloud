@@ -1,0 +1,13 @@
+# Ignorovať výstupné priečinky
+/anonymized_output/
+/ocr_output/
+/reports/
+
+# Ignorovať vstupné dáta
+/vstup_vseobecne/
+*.pdf
+
+# Ignorovať systémové a cache súbory
+__pycache__/
+.vscode/
+*.log
