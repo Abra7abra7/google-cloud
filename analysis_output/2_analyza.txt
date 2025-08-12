@@ -1,0 +1,87 @@
+Tu je zhrnutie kľúčových bodov z poskytnutých poistných dokumentov v prehľadnej štruktúre:
+
+---
+
+## Zhrnutie Poistných Dokumentov
+
+### 1. **Typ Poistenia:**
+
+*   **Poistenie Úrazu a Chorôb (NOVIS Wealth Insuring):**
+    *   Obsahuje krytie pre prípad smrti, trvalé následky úrazu, dobu nevyhnutnej liečby a práceneschopnosť v dôsledku úrazu.
+    *   Obsahuje krytie pre choroby, operácie v dôsledku choroby, hospitalizáciu a práceneschopnosť v dôsledku choroby.
+    *   Zahŕňa aj možnosť poistenia invalidity.
+    *   Možnosť **"Plnohodnotné poistenie v dôsledku úrazu"** zahŕňa trvalé následky, smrť spôsobenú úrazom, rozšírené úrazové krytie, dobu nevyhnutnej liečby a práceneschopnosť v dôsledku úrazu.
+*   **Doplnkové poistenie na Krankengeld (§ 106 GSVG) a Unterstützungsleistung (§ 104a GSVG):**
+    *   Tieto sú spomenuté v nemecky písaných dokumentoch a týkajú sa rakúskeho sociálneho zabezpečenia pre samostatne zárobkovo činné osoby. Sú to typy poistenia pre prípad choroby a dlhodobej choroby, ktoré pokrývajú stratu príjmu.
+
+### 2. **Zúčastnené Strany:**
+
+*   **Poistená Osoba / Poistník:**
+    *   **Meno:** M
+    *   **Priezvisko:** T123
+    *   **Dátum narodenia:** 01.01.1989
+    *   **Rodné číslo:** 890101/1111
+    *   **Adresa:** XXX PA, 976 66 (spomínané rôzne adresy ako PA XXX, POLOMKA)
+    *   **IČO/VSNR:** 5545140989 (v kontexte rakúskeho sociálneho zabezpečenia)
+    *   **Pracovisko:** My Wood Polomka Timber s.r.o. (príčinou úrazu)
+    *   **Prepojenie:** Zmluva podpísaná s NOVIS Poisťovňa a.s. s dátumom 09.07.2017.
+
+*   **Poisťovňa:**
+    *   **NOVIS Poisťovňa a.s.**
+    *   **Adresa:** Námestie Ľudovíta Štúra 2, 811 02 Bratislava
+    *   **IČO:** 47 251 301
+
+*   **Finančný Sprostredkovateľ:**
+    *   **MERKORY BROKER, s.r.o.**
+    *   **Registračné číslo:** 25227
+    *   **Kontakt:** MILAN MELAGA
+
+*   **Zdravotnícke Zariadenia:**
+    *   **Nemocnica s poliklinikou Brezno, n.o. (NsP Brezno n.o.)**
+        *   Adresa: Banisko 273/1, 97701 Brezno
+        *   Oddelenia/Ambulancie: Urgentný príjem - traumato-chirurgický, Traumatologická ambulancia
+        *   Lekári: MUDr. Mgr. Erik Wágner, MPH/MHA; MUDr. Martin Kohár; MUDr. Vladimír Vaník; MUDr. Anna Procházková
+    *   **TATRAMEDIK**
+        *   Adresa: Hostice 135, Pohronská Polhora, Hlavná 62
+        *   Lekár: MUDr. Erik MIKLOŠKO
+
+### 3. **Poistné Sumy a Bežne Platené Poistné:**
+
+*   **Poistná suma (Náčrt zmluvy):**
+    *   Základná poistná suma pre **"NOVIS Wealth Insuring"**: 50 000 €
+    *   V návrhu zmluvy sú tiež uvedené poistné sumy pre jednotlivé fondy (Garantovane Rastúci Poistný Fond, ETF Akciový Poistný Fond, Gold Poistný Fond, Podnikateľský Poistný Fond, Hypotekárny Poistný Fond, Family-office Poistný Fond) s nulovou hodnotou v čase návrhu.
+    *   **Minimálne poistné krytie** pre jednotlivé riziká pri uzatvorení zmluvy a v prvých 10 rokoch je minimálne 5 000 €.
+*   **Bežne platené poistné (BPP):**
+    *   Stanovené na **30 €** (platené mesačne).
+*   **Prvé zvýšené poistné:** 0 € (ak nie je súčasne dohodnuté bežne platené poistné alebo poistné krytie aspoň 50.000 €).
+*   **NOVIS vernostný bonus:** 1 000 € pri splnení podmienok, inak 500 €.
+
+### 4. **Dátumy Platnosti a Kľúčové Dátumy:**
+
+*   **Technický začiatok poistenia:** 15. JÚL 2017 (v návrhu zmluvy)
+*   **Dátum návrhu zmluvy:** 11. JÚL 2017
+*   **Dátum podpisu návrhu poistníka:** 9.7.2017
+*   **Dátum začiatku pracovnej neschopnosti ( Krankmeldung ):** 16.06.2023 (v kontexte rakúskeho sociálneho zabezpečenia)
+*   **Predpokladaná doba pracovnej neschopnosti:** Nie je presne stanovená, ale vyznačená je možnosť dlhodobej choroby.
+*   **Predpokladaná pracovná schopnosť ( Krankmeldung ):** 24.07.2023 (v druhom doklade Krankmeldung)
+*   **Dátumy návštev v NsP Brezno:**
+    *   01.07.2024 (Urgentný príjem, Traumatologická ambulancia)
+    *   02.07.2024 (Traumatologická ambulancia)
+    *   23.07.2024 (Traumatologická ambulancia)
+*   **Dátum oznámenia o poistnej udalosti:** 14.08.2024 (podpis poistenej osoby)
+
+### 5. **Poistná Udalosť a Diagnóza:**
+
+*   **Typ udalosti:** Pracovný úraz.
+*   **Popis úrazu:** Pri povoľovaní matice na kolese došlo k pádu kovovej rúry na III. prst pravej ruky (PHK).
+*   **Dátum a čas úrazu:** 01.07.2024 o 15:00 hod.
+*   **Miesto úrazu:** Pracovisko My Wood Polomka Timber s.r.o.
+*   **Lekárska Diagnóza (DG):**
+    *   **S62.61 Zlomenina iného prsta ruky, horný článok.**
+    *   V prvom zázname je uvedené: "fractura distal. článku Ill prsta PHK bez dislokácie".
+    *   V druhom zázname: "Fraktúra apexu distálneho článku 3. prsta, bez dislokácie."
+    *   V treťom zázname: "hematóm dist. falangy 3 prsta pr. ruky, bez deformacie"
+*   **Príčina pracovnej neschopnosti (Rakúsko):** "Arbeitsunfall" (pracovný úraz) bol označený v jednom dokumente Krankmeldung, v druhom "Sport- oder häuslicher Unfall" (športový alebo domáci úraz), čo môže byť nepresnosť v preklade alebo dokumentácii. Vzhľadom na kontext ostatných dokumentov je pracovný úraz pravdepodobnejší.
+*   **Diagnóza (Rakúsko):** S80.0 (Tento kód ICD-10 sa zvyčajne týka poranenia mäkkých tkanív oblasti kolena, čo je v rozpore s ostatnými záznamami o prste na ruke. Pravdepodobne ide o chybu v preklade alebo v pôvodnom dokumente.)
+
+---

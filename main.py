@@ -1,7 +1,7 @@
 import os
 import argparse
 import configparser
-from typing import List
+from typing import Callable
 
 from google.api_core.client_options import ClientOptions
 from google.cloud import documentai_v1 as documentai
@@ -47,79 +47,104 @@ def anonymize_text(
     response = dlp_client.deidentify_content(request=request)
     return response.item.value
 
-def process_directory(base_path: str, process_func, output_dir: str):
+def ocr_and_anonymize(file_path: str, raw_ocr_dir: str):
+    """Skompletizuje OCR, uloží surový text a vráti anonymizovaný text."""
+    # 1. OCR
+    text = process_document(PROJECT_ID, DOC_AI_LOCATION, PROCESSOR_ID, file_path, MIME_TYPE)
+    
+    # 2. Uloženie surového OCR textu
+    raw_filename = os.path.splitext(os.path.basename(file_path))[0] + ".txt"
+    raw_output_path = os.path.join(raw_ocr_dir, raw_filename)
+    os.makedirs(raw_ocr_dir, exist_ok=True)
+    with open(raw_output_path, "w", encoding="utf-8") as f:
+        f.write(text)
+
+    # 3. Anonymizácia
+    return anonymize_text(PROJECT_ID, text, DLP_TEMPLATE_ID)
+
+def process_directory(base_path: str, process_func, output_dir: str, status_callback: Callable = None):
     """Spracuje všetky PDF súbory v danom priečinku pomocou poskytnutej funkcie."""
     if not os.path.isdir(base_path):
-        print(f"Info: Priečinok '{os.path.basename(base_path)}' neexistuje. Preskakujem.")
+        if status_callback:
+            status_callback(f"Info: Priečinok '{os.path.basename(base_path)}' neexistuje. Preskakujem.")
         return
 
-    print(f"--- Spracovávam priečinok: {os.path.basename(base_path)} ---")
+    if status_callback:
+        status_callback(f"Spracovávam priečinok: {os.path.basename(base_path)}...")
     os.makedirs(output_dir, exist_ok=True)
 
     for filename in os.listdir(base_path):
         if filename.lower().endswith('.pdf'):
             file_path = os.path.join(base_path, filename)
             try:
-                print(f"\nSpracovávam súbor: {filename}")
+                if status_callback:
+                    status_callback(f"Spracovávam súbor: {filename}...")
                 processed_text = process_func(file_path)
                 
                 output_filename = os.path.splitext(filename)[0] + ".txt"
                 output_path = os.path.join(output_dir, output_filename)
                 with open(output_path, "w", encoding="utf-8") as f:
                     f.write(processed_text)
-                print(f"Výstup bol uložený do: {output_path}")
+                if status_callback:
+                    status_callback(f"Uložené: {output_filename}")
 
             except Exception as e:
-                print(f"Nastala chyba pri spracovaní súboru {filename}: {e}")
+                if status_callback:
+                    status_callback(f"Chyba pri súbore {filename}: {e}")
 
-def main(args):
-    """Hlavná funkcia, ktorá riadi spracovanie jednej poistnej udalosti."""
-    event_path = args.event_path
+def run_processing(event_path: str, anonymized_dir: str, general_dir: str, raw_ocr_dir: str, status_callback: Callable = None):
+    """Hlavná logika pre spracovanie jednej poistnej udalosti."""
     if not os.path.isdir(event_path):
-        print(f"Chyba: Zadaná cesta '{event_path}' nie je platný priečinok poistnej udalosti.")
+        if status_callback:
+            status_callback(f"Chyba: Zadaná cesta '{event_path}' nie je platný priečinok.")
         return
 
     event_id = os.path.basename(event_path)
-    print(f"=== Spúšťam spracovanie poistnej udalosti: {event_id} ===")
+    if status_callback:
+        status_callback(f"Spúšťam spracovanie poistnej udalosti: {event_id}...")
 
-    # Cesty k podpriečinkom
     sensitive_path = os.path.join(event_path, "citlive_dokumenty")
     general_path = os.path.join(event_path, "vseobecne_dokumenty")
 
-    # Cesty k výstupným priečinkom
-    anonymized_output_dir = os.path.join(args.anonymized_dir, event_id)
-    general_output_dir = os.path.join(args.general_dir, event_id)
+    anonymized_output_dir = os.path.join(anonymized_dir, event_id)
+    general_output_dir = os.path.join(general_dir, event_id)
+    raw_ocr_output_dir = os.path.join(raw_ocr_dir, event_id)
 
-    # 1. Spracovanie citlivých dokumentov (OCR + Anonymizácia)
-    def ocr_and_anonymize(file_path):
-        text = process_document(PROJECT_ID, DOC_AI_LOCATION, PROCESSOR_ID, file_path, MIME_TYPE)
-        return anonymize_text(PROJECT_ID, text, DLP_TEMPLATE_ID)
+    # Vytvoríme lambda funkciu, ktorá odovzdá extra parameter do ocr_and_anonymize
+    ocr_and_anonymize_func = lambda fp: ocr_and_anonymize(fp, raw_ocr_output_dir)
 
-    process_directory(sensitive_path, ocr_and_anonymize, anonymized_output_dir)
+    process_directory(sensitive_path, ocr_and_anonymize_func, anonymized_output_dir, status_callback)
 
-    # 2. Spracovanie všeobecných dokumentov (iba OCR)
     def ocr_only(file_path):
         return process_document(PROJECT_ID, DOC_AI_LOCATION, PROCESSOR_ID, file_path, MIME_TYPE)
 
-    process_directory(general_path, ocr_only, general_output_dir)
+    process_directory(general_path, ocr_only, general_output_dir, status_callback)
 
-    print(f"\n=== Spracovanie poistnej udalosti {event_id} dokončené. ===")
+    if status_callback:
+        status_callback(f"Spracovanie poistnej udalosti {event_id} dokončené.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Spracuj a selektívne anonymizuj dokumenty jednej poistnej udalosti.")
     parser.add_argument(
         "event_path", 
-        help="Cesta k hlavnému priečinku poistnej udalosti, ktorý obsahuje podpriečinky 'citlive_dokumenty' a 'vseobecne_dokumenty'."
+        help="Cesta k hlavnému priečinku poistnej udalosti."
     )
     parser.add_argument(
         "--anonymized_dir", 
         default="anonymized_output", 
-        help="Hlavný priečinok, do ktorého sa uložia anonymizované texty."
+        help="Hlavný priečinok pre anonymizované texty."
     )
     parser.add_argument(
         "--general_dir", 
         default="general_output", 
-        help="Hlavný priečinok, do ktorého sa uložia neanonymizované texty zo všeobecných dokumentov."
+        help="Hlavný priečinok pre všeobecné texty."
+    )
+    parser.add_argument(
+        "--raw_ocr_dir", 
+        default="raw_ocr_output", 
+        help="Hlavný priečinok pre surové OCR texty."
     )
     args = parser.parse_args()
-    main(args)
+    
+    # Pre príkazový riadok používame jednoduchý print ako callback
+    run_processing(args.event_path, args.anonymized_dir, args.general_dir, args.raw_ocr_dir, print)

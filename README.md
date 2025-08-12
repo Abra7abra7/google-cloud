@@ -59,6 +59,26 @@ Všetky nastavenia projektu sa nachádzajú v súbore `config.ini`. Pred prvým 
 
 ## Použitie
 
+Existujú dva spôsoby použitia nástroja: cez grafické rozhranie (odporúčané) alebo cez príkazový riadok.
+
+### Webové rozhranie (odporúčané)
+
+Pre najjednoduchšie a najmodernejšie použitie spustite aplikáciu pomocou Streamlit:
+
+```bash
+streamlit run app_streamlit.py
+```
+
+Aplikácia sa automaticky otvorí vo vašom webovom prehliadači.
+
+1.  V ľavom paneli si vyberte poistnú udalosť, ktorú chcete spracovať.
+2.  Kliknite na tlačidlo **"Spracovať a analyzovať udalosť"**.
+3.  Sledujte priebeh v reálnom čase priamo na stránke.
+4.  Po dokončení sa zobrazí výsledok analýzy a môžete si ho stiahnuť.
+
+### Príkazový riadok (CLI)
+
+
 ### 1. Príprava dát
 
 Vytvorte si hlavný priečinok (napr. `poistne_udalosti`) a v ňom pre každú udalosť samostatný podpriečinok. Názov tohto podpriečinka slúži ako **ID udalosti**.

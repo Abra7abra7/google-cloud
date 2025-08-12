@@ -1,0 +1,73 @@
+Tu je zhrnutie kľúčových bodov z poskytnutých poistných dokumentov v prehľadnej štruktúre:
+
+---
+
+### Zhrnutie poistnej udalosti a lekárskych správ
+
+**1. Typ Poistenia:**
+
+*   **Oznámenie o poistnej udalosti:** Typ poistenia nie je priamo špecifikovaný, ale z obsahu vyplýva, že ide o poistenie, ktoré pokrýva úraz alebo zdravotné problémy spôsobené vonkajším vplyvom.
+*   **Lekárske správy:** Potvrdzujú liečbu úrazu oka.
+
+**2. Zúčastnené Strany:**
+
+*   **Poistená osoba:**
+    *   **Meno:** M
+    *   **Priezvisko:** T123
+    *   **Rodné číslo:** 890101/1111
+    *   **Dátum narodenia:** 14.09.1989
+    *   **Adresa trvalého pobytu:** xxx, PA, PSČ 97666 (Číslo orientačné: 687/59)
+    *   **Číslo dokladu totožnosti:** NF964939 (Občiansky preukaz)
+    *   **Telefón/Mobil:** +421948000000
+    *   **E-mail:** 123mt@centrum.sk
+    *   **Štátna príslušnosť:** SR
+    *   **Miesto narodenia:** Brezno
+    *   **Meno a priezvisko (z občan. preukazu):** Marek Tkáčik
+
+*   **Poisťovňa:**
+    *   **Názov:** NOVIS Poisťovňa a.s. (NOVIS Insurance Company)
+    *   **Sídlo:** Námestie Ľudovíta Štúra 2, 811 02 Bratislava
+    *   **IČO:** 47 251 301
+
+*   **Poskytovatelia zdravotnej starostlivosti:**
+    *   **Fakultná nemocnica s poliklinikou F.D. Roosevelta Banská Bystrica**
+        *   **Ambulancia:** Očná ambulancia (OCK)
+        *   **Lekári (spomínaní v správach):** MUDr. Zora Štefančíková, MUDr. Daniela Demianová
+    *   **Očná ambulancia - Brezno (OFTAL s.r.o.)**
+        *   **Adresa:** Kuzmányho nábrežie 28, 96001 Zvolen (ale lekárske správy sú z Brezna)
+
+**3. Poistná Udalosť:**
+
+*   **Dátum a čas:** 3.7.2025, cca o 7. hodine
+*   **Miesto:** Doma, xxx, 97666 PA
+*   **Popis:** Pri práci na dome vletela poistenej osobe do pravého oka omietka. Následne si oko vyplachoval.
+
+**4. Dátumy Platnosti a Súvisiace Dátumy:**
+
+*   **Dátum vzniku poistnej udalosti:** 03.07.2025
+*   **Dátum vyšetrenia v Nemocnici BB:** 03.07.2025 (12:21)
+*   **Dátumy lekárskych správ z Oftal Brezno:**
+    *   04.07.2025
+    *   07.07.2025
+    *   10.07.2025
+    *   17.07.2025
+*   **Dátum podpisu oznámenia o poistnej udalosti:** 24.07.2025
+*   **Platnosť občianskeho preukazu:** Vydaný: 09.08.2023, Platnosť do: 09.08.2033
+
+**5. Dôležité Diagnózy a Liečba:**
+
+*   **Diagnóza:**
+    *   Causoma corneae et conjunctivae o.dx. (Poleptanie rohovky a spojovky pravého oka)
+    *   T266 (Opaľovanie alebo poleptanie oka a očného viečka) - v niektorých správach
+*   **Liečba:**
+    *   Výplach oka, toaleta spojovkového vaku.
+    *   Používanie kvapiek (napr. Uniflox, Ocuvers B5, Aminoplasmal, Lotemax) a mastí (O-Framykoin comp. ung.).
+    *   Redukcia liečby v závislosti od zlepšenia stavu.
+    *   Pravidelné kontroly v očnej ambulancii.
+
+**6. Poistné Sumy / Plnenie:**
+
+*   Poistné sumy ani konkrétna výška poistného plnenia nie sú v poskytnutých dokumentoch uvedené.
+*   Je uvedenú IBAN účet pre poukázanie poistného plnenia: SK28 1111 0000 0011 1111 1111.
+
+---
