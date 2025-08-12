@@ -5,25 +5,22 @@ from google import genai
 from google.genai import types
 
 # --- Konfigurácia ---
-# Načítanie konfigurácie z externého súboru
 config = configparser.ConfigParser()
 config.read('config.ini', encoding='utf-8')
 
 PROJECT_ID = config.get('gcp', 'project_id')
-LOCATION = config.get('analysis', 'location')
+ANALYSIS_LOCATION = config.get('analysis', 'location')
 MODEL_NAME = config.get('analysis', 'model_name')
 ANALYSIS_PROMPT = config.get('analysis', 'prompt')
 
 def load_texts_from_dir(directory_path: str) -> str:
-    """Načíta obsah všetkých .txt súborov z daného priečinka a spojí ich.
-    Vráti jeden reťazec obsahujúci všetky texty.
-    """
+    """Načíta obsah všetkých .txt súborov z daného priečinka a spojí ich."""
     all_texts = []
     if not os.path.isdir(directory_path):
-        print(f"Varovanie: Priečinok '{directory_path}' neexistuje. Preskakujem.")
+        print(f"Info: Priečinok '{directory_path}' neexistuje alebo je prázdny. Preskakujem.")
         return ""
 
-    for filename in os.listdir(directory_path):
+    for filename in sorted(os.listdir(directory_path)):
         if filename.lower().endswith('.txt'):
             file_path = os.path.join(directory_path, filename)
             try:
@@ -32,12 +29,17 @@ def load_texts_from_dir(directory_path: str) -> str:
             except Exception as e:
                 print(f"Chyba pri čítaní súboru {file_path}: {e}")
     
-    return "\n---\n".join(all_texts)
+    return "\n\n--- ďalší dokument ---\n\n".join(all_texts)
 
-def analyze_with_gemini(project_id: str, location: str, model_name: str, prompt: str, documents_text: str):
-    """Pošle text dokumentov a prompt do modelu Gemini a vypíše jeho odpoveď.
-    Používa novú knižnicu google.genai a streamuje odpoveď.
-    """
+def analyze_and_save(
+    project_id: str, 
+    location: str, 
+    model_name: str, 
+    prompt: str, 
+    documents_text: str,
+    output_path: str
+):
+    """Pošle text do modelu Gemini a výsledok uloží do súboru."""
     print("\nInicializujem Gemini klienta...")
     client = genai.Client(
         vertexai=True,
@@ -45,63 +47,71 @@ def analyze_with_gemini(project_id: str, location: str, model_name: str, prompt:
         location=location,
     )
 
-    # Spojenie promptu a dát do jedného celku
     full_prompt = f"{prompt}\n\nDokumenty na analýzu:\n---\n{documents_text}"
-
-    contents = [
-        types.Content(
-            role="user",
-            parts=[
-                types.Part(text=full_prompt)
-            ]
-        )
-    ]
+    contents = [types.Content(role="user", parts=[types.Part(text=full_prompt)])]
 
     print(f"Posielam dáta na analýzu do modelu '{model_name}'...")
-    print("--- Výsledok analýzy od Gemini ---")
-    
-    # Streamovanie a vypisovanie odpovede
-    for chunk in client.models.generate_content_stream(
-        model=model_name,
-        contents=contents,
-    ):
-        print(chunk.text, end="")
-    print() # Zalomenie riadku na konci
+    response_stream = client.models.generate_content_stream(model=model_name, contents=contents)
+
+    try:
+        with open(output_path, "w", encoding="utf-8") as f:
+            for chunk in response_stream:
+                f.write(chunk.text)
+        print(f"--- Výsledok analýzy bol úspešne uložený do: {output_path} ---")
+    except Exception as e:
+        print(f"Nastala chyba pri ukladaní výsledku analýzy: {e}")
 
 def main(args):
-    """Hlavná funkcia pre spustenie analýzy.
-    """
-    print("Spúšťam pokročilú analýzu dokumentov...")
+    """Hlavná funkcia pre spustenie analýzy jednej poistnej udalosti."""
+    event_id = args.event_id
+    print(f"=== Spúšťam analýzu poistnej udalosti: {event_id} ===")
+
+    # Cesty k spracovaným dátam
+    anonymized_path = os.path.join(args.anonymized_dir, event_id)
+    general_path = os.path.join(args.general_dir, event_id)
+
+    # 1. Načítanie textov
+    print(f"Načítavam anonymizované texty z: {anonymized_path}")
+    anonymized_texts = load_texts_from_dir(anonymized_path)
     
-    # 1. Načítanie anonymizovaných textov
-    print(f"Načítavam anonymizované súbory z: {args.anonymized_dir}")
-    anonymized_texts = load_texts_from_dir(args.anonymized_dir)
+    print(f"Načítavam všeobecné texty z: {general_path}")
+    general_texts = load_texts_from_dir(general_path)
     
-    # 2. Načítanie všeobecných textov
-    print(f"Načítavam všeobecné súbory z: {args.general_dir}")
-    general_texts = load_texts_from_dir(args.general_dir)
-    
-    # 3. Spojenie všetkých textov
-    combined_text = anonymized_texts + "\n" + general_texts
+    # 2. Spojenie všetkých textov do jedného kontextu
+    combined_text = anonymized_texts + "\n\n--- všeobecné dokumenty ---\n\n" + general_texts
     
     if not combined_text.strip():
         print("Nenašli sa žiadne texty na analýzu. Končím.")
         return
         
-    # 4. Spustenie analýzy pomocou Gemini
-    analyze_with_gemini(PROJECT_ID, LOCATION, MODEL_NAME, ANALYSIS_PROMPT, combined_text)
+    # 3. Príprava výstupného súboru a spustenie analýzy
+    os.makedirs(args.analysis_dir, exist_ok=True)
+    output_file = os.path.join(args.analysis_dir, f"{event_id}_analyza.txt")
+
+    analyze_and_save(
+        PROJECT_ID, ANALYSIS_LOCATION, MODEL_NAME, ANALYSIS_PROMPT, combined_text, output_file
+    )
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Analyzuj textové dáta z poistných zmlúv pomocou Vertex AI.")
+    parser = argparse.ArgumentParser(description="Analyzuj textové dáta jednej poistnej udalosti a ulož výsledok.")
     parser.add_argument(
-        "-a", "--anonymized_dir", 
-        default="anonymized_output", 
-        help="Priečinok s anonymizovanými textami."
+        "event_id", 
+        help="ID (názov priečinka) poistnej udalosti, ktorá sa má analyzovať."
     )
     parser.add_argument(
-        "-g", "--general_dir", 
-        default="vstup_vseobecne", 
-        help="Priečinok so všeobecnými, necitlivými textami."
+        "--anonymized_dir", 
+        default="anonymized_output", 
+        help="Hlavný priečinok s anonymizovanými textami."
+    )
+    parser.add_argument(
+        "--general_dir", 
+        default="general_output", 
+        help="Hlavný priečinok so všeobecnými textami."
+    )
+    parser.add_argument(
+        "--analysis_dir",
+        default="analysis_output",
+        help="Priečinok, do ktorého sa uloží finálny výsledok analýzy."
     )
     args = parser.parse_args()
     main(args)

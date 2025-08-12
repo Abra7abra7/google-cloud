@@ -1,88 +1,97 @@
-# Automatizovaná Anonymizácia a Analýza Dokumentov s Google Cloud AI
+# Nástroj na spracovanie a analýzu dokumentov pomocou Google Cloud AI
 
-Tento projekt poskytuje sadu Python skriptov na automatizáciu procesu extrakcie textu z PDF dokumentov (pomocou Google Document AI), následnú anonymizáciu citlivých dát (pomocou Google Cloud DLP) a finálnu obsahovú analýzu pomocou generatívnych modelov Gemini.
+Tento projekt automatizuje proces extrakcie textu (OCR), selektívnej anonymizácie citlivých dát a inteligentnej analýzy obsahu dokumentov spojených s poistnými udalosťami. Využíva na to služby Google Cloud: Document AI, Data Loss Prevention (DLP) a Vertex AI (model Gemini).
 
-## Architektúra a Pracovný Postup
+## Architektúra
 
-Projekt je založený na dvojkrokovom spracovaní:
+Celý proces je rozdelený na dva hlavné kroky, ktoré riadia dva samostatné skripty:
 
-1.  **Krok 1: Spracovanie a Anonymizácia (skript `main.py`)**
-    -   Načíta PDF súbor alebo všetky PDF súbory z určeného priečinka.
-    -   Extrahovaný text z OCR uloží do priečinka `ocr_output`.
-    -   Anonymizovaný text pomocou DLP šablóny uloží do priečinka `anonymized_output`.
+1.  **`main.py` - Spracovanie a anonymizácia:**
+    *   Načíta všetky dokumenty z priečinka konkrétnej poistnej udalosti.
+    *   Rozlišuje medzi citlivými a všeobecnými dokumentmi.
+    *   Na **citlivé dokumenty** aplikuje OCR (Document AI) a následne anonymizáciu (DLP).
+    *   Na **všeobecné dokumenty** aplikuje iba OCR.
+    *   Výstupy ukladá do prehľadnej štruktúry v priečinkoch `anonymized_output/` a `general_output/`.
 
-2.  **Krok 2: Generatívna Analýza (skript `analyza.py`)**
-    -   Načíta už anonymizované texty z `anonymized_output`.
-    -   Načíta všeobecné (necitlivé) dokumenty z priečinka `vstup_vseobecne`.
-    -   Spojí všetky texty a pomocou modelu Gemini vykoná obsahovú analýzu na základe promptu definovaného v `config.ini`.
-
-## Funkcie
-
-- **Extrakcia textu**: Spracuje PDF súbory pomocou špecifikovaného Google Document AI procesora.
-- **Anonymizácia dát**: Používa pred-konfigurovanú Google Cloud DLP šablónu na nájdenie a redigovanie citlivých informácií.
-- **Generatívna Analýza**: Využíva silu modelov Gemini na pokročilú analýzu a zhrnutie obsahu dokumentov.
-- **Centrálna Konfigurácia**: Všetky nastavenia projektu sú spravované v jednom súbore (`config.ini`), čo umožňuje jednoduchú zmenu modelov, ID projektov a ciest.
-- **Dávkové spracovanie**: Dokáže spracovať jeden PDF súbor alebo všetky PDF súbory v určenom priečinku.
+2.  **`analyza.py` - Analýza obsahu:**
+    *   Načíta všetky spracované texty (anonymizované aj všeobecné) pre danú poistnú udalosť.
+    *   Spojí ich do jedného komplexného kontextu.
+    *   Tento kontext pošle na analýzu modelu **Gemini** cez Vertex AI, ktorý vygeneruje súhrn alebo odpovie na zadané otázky.
 
 ## Požiadavky
 
-Pred spustením skriptu je potrebné mať v Google Cloud nastavené:
+*   Python 3.8+
+*   Účet na Google Cloud Platform s aktivovanými API: Document AI, DLP, Vertex AI.
+*   Autentifikačný súbor (service account key) pre prístup k GCP.
+*   Nainštalované knižnice (pozri `requirements.txt`).
 
-1.  **Google Cloud Projekt**: Aktívny a nakonfigurovaný projekt.
-2.  **Povolené API**: Uistite sa, že máte v projekte povolené nasledujúce API:
-    -   Cloud Document AI API
-    -   Cloud Data Loss Prevention (DLP) API
-    -   Vertex AI API
-3.  **Service Account**: Servisný účet s potrebnými IAM rolami (`Document AI Editor`, `DLP User`, `Vertex AI User`). Stiahnite si JSON kľúč pre tento účet a nastavte environmentálnu premennú `GOOGLE_APPLICATION_CREDENTIALS`.
-4.  **Document AI Procesor**: Vytvorený Document AI procesor (napr. typu "Document OCR").
-5.  **DLP Šablóna**: Vytvorená DLP de-identifikačná šablóna.
+## Inštalácia
 
-## Inštalácia a Nastavenie
+1.  **Klonovanie repozitára:**
+    ```bash
+    git clone <URL_repozitara>
+    cd google-cloud
+    ```
 
-1.  **Nainštalujte potrebné Python knižnice:**
+2.  **Inštalácia závislostí:**
     ```bash
     pip install -r requirements.txt
     ```
 
-2.  **Nakonfigurujte projekt v `config.ini`**:
-    Otvorte súbor `config.ini` a doplňte všetky požadované hodnoty podľa vášho nastavenia v Google Cloud. Môžete tu jednoducho meniť model pre analýzu, cesty, ID a ďalšie parametre.
+3.  **Nastavenie autentifikácie:**
+    Nastavte environmentálnu premennú `GOOGLE_APPLICATION_CREDENTIALS` tak, aby ukazovala na váš JSON kľúč.
+    ```bash
+    # Pre Windows (v príkazovom riadku)
+    set GOOGLE_APPLICATION_CREDENTIALS="C:\cesta\k\vasmu\klucu.json"
 
-    ```ini
-    [gcp]
-    project_id = vas-gcp-projekt-id
-
-    [document_ai]
-    location = eu
-    processor_id = vas-doc-ai-procesor-id
-    ...
-
-    [analysis]
-    location = global
-    model_name = gemini-1.5-flash-001
-    ...
+    # Pre PowerShell
+    $env:GOOGLE_APPLICATION_CREDENTIALS="C:\cesta\k\vasmu\klucu.json"
     ```
+
+## Konfigurácia (`config.ini`)
+
+Všetky nastavenia projektu sa nachádzajú v súbore `config.ini`. Pred prvým spustením si ho skontrolujte a prispôsobte.
+
+*   **[gcp]**: `project_id` - ID vášho Google Cloud projektu.
+*   **[document_ai]**: `location`, `processor_id`, `mime_type` - Nastavenia pre Document AI.
+*   **[dlp]**: `template_id` - ID de-identifikačnej šablóny pre DLP.
+*   **[analysis]**: `location`, `model_name`, `prompt` - Nastavenia pre model Gemini (napr. `gemini-1.5-flash-001`) a zadanie pre analýzu.
 
 ## Použitie
 
-Celý proces pozostáva z dvoch hlavných krokov:
+### 1. Príprava dát
 
-**Krok 1: Spustenie spracovania a anonymizácie**
+Vytvorte si hlavný priečinok (napr. `poistne_udalosti`) a v ňom pre každú udalosť samostatný podpriečinok. Názov tohto podpriečinka slúži ako **ID udalosti**.
 
-Presuňte všetky citlivé PDF dokumenty do jedného priečinka a spustite skript `main.py` s cestou k tomuto priečinku ako argumentom.
+V každom priečinku udalosti vytvorte nasledujúce dva podpriečinky:
 
-```bash
-# Spracuje všetky PDF v zadanom priečinku
-python main.py "C:\cesta\k\vasim\pdf-suborom"
+*   `citlive_dokumenty/`: Sem vložte všetky PDF, ktoré obsahujú osobné údaje a **vyžadujú anonymizáciu**.
+*   `vseobecne_dokumenty/`: Sem vložte všetky PDF, ktoré sú bezpečné a **nevyžadujú anonymizáciu**.
+
+**Príklad štruktúry:**
+```
+poistne_udalosti/
+└── PU_12345/                  <-- ID udalosti je 'PU_12345'
+    ├── citlive_dokumenty/
+    │   └── lekarska_sprava.pdf
+    └── vseobecne_dokumenty/
+        └── poistne_podmienky.pdf
 ```
 
-Výstupy sa uložia do priečinkov `ocr_output` a `anonymized_output`.
+### 2. Spracovanie a anonymizácia
 
-**Krok 2: Spustenie analýzy**
-
-Umiestnite všetky všeobecné, necitlivé textové súbory do priečinka `vstup_vseobecne`. Následne spustite skript `analyza.py`. Skript si automaticky načíta dáta z výstupných priečinkov predchádzajúceho kroku.
+Spustite skript `main.py` a ako argument mu odovzdajte cestu k priečinku konkrétnej poistnej udalosti.
 
 ```bash
-python analyza.py
+python main.py "C:\cesta\k\poistne_udalosti\PU_12345"
 ```
+Skript automaticky vytvorí priečinky `anonymized_output/PU_12345` a `general_output/PU_12345` s výslednými `.txt` súbormi.
 
-Skript vypíše analýzu od modelu Gemini priamo do konzoly.
+### 3. Analýza
+
+Po dokončení spracovania spustite skript `analyza.py` a ako argument mu odovzdajte **ID udalosti**.
+
+```bash
+python analyza.py PU_12345
+```
+Skript načíta všetky relevantné texty a výslednú analýzu od modelu Gemini uloží do súboru v priečinku `analysis_output`.

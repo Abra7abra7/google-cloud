@@ -7,25 +7,20 @@ from google.api_core.client_options import ClientOptions
 from google.cloud import documentai_v1 as documentai
 from google.cloud import dlp_v2
 
-# --- Konfigurácia --- 
-# Načítanie konfigurácie z externého súboru
+# --- Konfigurácia ---
 config = configparser.ConfigParser()
 config.read('config.ini', encoding='utf-8')
 
-# Načítanie hodnôt z konfiguračného súboru
 PROJECT_ID = config.get('gcp', 'project_id')
-LOCATION = config.get('document_ai', 'location')
+DOC_AI_LOCATION = config.get('document_ai', 'location')
 PROCESSOR_ID = config.get('document_ai', 'processor_id')
 DLP_TEMPLATE_ID = config.get('dlp', 'template_id')
 MIME_TYPE = config.get('document_ai', 'mime_type')
 
-
 def process_document(
     project_id: str, location: str, processor_id: str, file_path: str, mime_type: str
 ) -> str:
-    """
-    Spracuje dokument pomocou Document AI a vráti extrahovaný text.
-    """
+    """Spracuje dokument pomocou Document AI a vráti extrahovaný text."""
     client_options = {"api_endpoint": f"{location}-documentai.googleapis.com"}
     client = documentai.DocumentProcessorServiceClient(client_options=client_options)
     name = client.processor_path(project_id, location, processor_id)
@@ -38,106 +33,93 @@ def process_document(
     result = client.process_document(request=request)
     return result.document.text
 
-
 def anonymize_text(
     project_id: str, text_to_anonymize: str, dlp_template_id: str
 ) -> str:
-    """
-    Anonymizuje text pomocou jednej, kompletnej de-identifikačnej šablóny.
-    """
+    """Anonymizuje text pomocou jednej, kompletnej de-identifikačnej šablóny."""
     dlp_client = dlp_v2.DlpServiceClient()
-
-    # Rodičovský zdroj pre volanie API. Musí zodpovedať lokácii šablóny ('global').
     parent = f"projects/{project_id}/locations/global"
-
-    # Vytvorenie požiadavky, ktorá používa už len názov jednej šablóny.
     request = dlp_v2.DeidentifyContentRequest(
         parent=parent,
         deidentify_template_name=dlp_template_id,
         item={"value": text_to_anonymize},
     )
-
     response = dlp_client.deidentify_content(request=request)
     return response.item.value
 
-
-def main(args):
-    """
-    Hlavná funkcia, ktorá spája spracovanie dokumentu a anonymizáciu.
-    """
-    # Určenie vstupných súborov
-    if os.path.isfile(args.input_path):
-        files_to_process = [args.input_path]
-    elif os.path.isdir(args.input_path):
-        files_to_process = [
-            os.path.join(args.input_path, f) 
-            for f in os.listdir(args.input_path) if f.lower().endswith('.pdf')
-        ]
-    else:
-        print(f"Chyba: Vstupná cesta '{args.input_path}' neexistuje alebo nie je súbor ani priečinok.")
+def process_directory(base_path: str, process_func, output_dir: str):
+    """Spracuje všetky PDF súbory v danom priečinku pomocou poskytnutej funkcie."""
+    if not os.path.isdir(base_path):
+        print(f"Info: Priečinok '{os.path.basename(base_path)}' neexistuje. Preskakujem.")
         return
 
-    # Vytvorenie výstupných priečinkov
-    os.makedirs(args.output_dir, exist_ok=True)
-    print(f"Anonymizované výstupy sa budú ukladať do: {args.output_dir}")
-    os.makedirs(args.ocr_dir, exist_ok=True)
-    print(f"Surové OCR výstupy sa budú ukladať do: {args.ocr_dir}")
+    print(f"--- Spracovávam priečinok: {os.path.basename(base_path)} ---")
+    os.makedirs(output_dir, exist_ok=True)
 
-    for file_path in files_to_process:
-        try:
-            base_filename = os.path.basename(file_path)
-            print(f"\n--- Spracovávam súbor: {base_filename} ---")
+    for filename in os.listdir(base_path):
+        if filename.lower().endswith('.pdf'):
+            file_path = os.path.join(base_path, filename)
+            try:
+                print(f"\nSpracovávam súbor: {filename}")
+                processed_text = process_func(file_path)
+                
+                output_filename = os.path.splitext(filename)[0] + ".txt"
+                output_path = os.path.join(output_dir, output_filename)
+                with open(output_path, "w", encoding="utf-8") as f:
+                    f.write(processed_text)
+                print(f"Výstup bol uložený do: {output_path}")
 
-            # Krok 1: Spracovanie dokumentu cez Document AI
-            extracted_text = process_document(
-                PROJECT_ID, LOCATION, PROCESSOR_ID, file_path, MIME_TYPE
-            )
-            print("Dokument úspešne spracovaný v Document AI.")
+            except Exception as e:
+                print(f"Nastala chyba pri spracovaní súboru {filename}: {e}")
 
-            # Krok 1.5: Uloženie surového OCR výstupu
-            ocr_filename = os.path.splitext(base_filename)[0] + "_ocr.txt"
-            ocr_path = os.path.join(args.ocr_dir, ocr_filename)
-            with open(ocr_path, "w", encoding="utf-8") as f:
-                f.write(extracted_text)
-            print(f"Surový OCR text bol uložený do súboru: {ocr_path}")
+def main(args):
+    """Hlavná funkcia, ktorá riadi spracovanie jednej poistnej udalosti."""
+    event_path = args.event_path
+    if not os.path.isdir(event_path):
+        print(f"Chyba: Zadaná cesta '{event_path}' nie je platný priečinok poistnej udalosti.")
+        return
 
-            # Krok 2: Anonymizácia extrahovaného textu
-            print("Spúšťam anonymizáciu textu...")
-            anonymized_text = anonymize_text(
-                PROJECT_ID,
-                extracted_text,
-                DLP_TEMPLATE_ID,
-            )
-            print("Text úspešne anonymizovaný.")
+    event_id = os.path.basename(event_path)
+    print(f"=== Spúšťam spracovanie poistnej udalosti: {event_id} ===")
 
-            # Krok 3: Uloženie anonymizovaného výstupu do súboru
-            output_filename = os.path.splitext(base_filename)[0] + "_anonymized.txt"
-            output_path = os.path.join(args.output_dir, output_filename)
-            
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(anonymized_text)
-            print(f"Anonymizovaný text bol uložený do súboru: {output_path}")
+    # Cesty k podpriečinkom
+    sensitive_path = os.path.join(event_path, "citlive_dokumenty")
+    general_path = os.path.join(event_path, "vseobecne_dokumenty")
 
-        except Exception as e:
-            print(f"Nastala chyba pri spracovaní súboru {file_path}: {e}")
+    # Cesty k výstupným priečinkom
+    anonymized_output_dir = os.path.join(args.anonymized_dir, event_id)
+    general_output_dir = os.path.join(args.general_dir, event_id)
 
+    # 1. Spracovanie citlivých dokumentov (OCR + Anonymizácia)
+    def ocr_and_anonymize(file_path):
+        text = process_document(PROJECT_ID, DOC_AI_LOCATION, PROCESSOR_ID, file_path, MIME_TYPE)
+        return anonymize_text(PROJECT_ID, text, DLP_TEMPLATE_ID)
+
+    process_directory(sensitive_path, ocr_and_anonymize, anonymized_output_dir)
+
+    # 2. Spracovanie všeobecných dokumentov (iba OCR)
+    def ocr_only(file_path):
+        return process_document(PROJECT_ID, DOC_AI_LOCATION, PROCESSOR_ID, file_path, MIME_TYPE)
+
+    process_directory(general_path, ocr_only, general_output_dir)
+
+    print(f"\n=== Spracovanie poistnej udalosti {event_id} dokončené. ===")
 
 if __name__ == "__main__":
-    # Nastavenie argumentov príkazového riadku
-    parser = argparse.ArgumentParser(description="Spracuj a anonymizuj dokumenty pomocou Google Cloud AI.")
+    parser = argparse.ArgumentParser(description="Spracuj a selektívne anonymizuj dokumenty jednej poistnej udalosti.")
     parser.add_argument(
-        "input_path", 
-        help="Cesta k PDF súboru alebo k priečinku s PDF súbormi."
+        "event_path", 
+        help="Cesta k hlavnému priečinku poistnej udalosti, ktorý obsahuje podpriečinky 'citlive_dokumenty' a 'vseobecne_dokumenty'."
     )
     parser.add_argument(
-        "-o", "--output_dir", 
+        "--anonymized_dir", 
         default="anonymized_output", 
-        help="Priečinok, do ktorého sa uložia anonymizované texty."
+        help="Hlavný priečinok, do ktorého sa uložia anonymizované texty."
     )
     parser.add_argument(
-        "--ocr_dir", 
-        default="ocr_output", 
-        help="Priečinok, do ktorého sa uložia surové texty z OCR."
+        "--general_dir", 
+        default="general_output", 
+        help="Hlavný priečinok, do ktorého sa uložia neanonymizované texty zo všeobecných dokumentov."
     )
     args = parser.parse_args()
     main(args)
