@@ -1,111 +1,91 @@
 import os
 import argparse
 import configparser
+import glob
 from typing import Callable
-from google import genai
-from google.genai import types
+
+import google.generativeai as genai
 
 # --- Konfigurácia ---
 config = configparser.ConfigParser()
 config.read('config.ini', encoding='utf-8')
 
-PROJECT_ID = config.get('gcp', 'project_id')
-ANALYSIS_LOCATION = config.get('analysis', 'location')
-MODEL_NAME = config.get('analysis', 'model_name')
-ANALYSIS_PROMPT = config.get('analysis', 'prompt')
+GEMINI_API_KEY = config.get('gemini', 'api_key')
+GEMINI_MODEL = config.get('gemini', 'model')
+ANALYSIS_PROMPT = config.get('gemini', 'analysis_prompt')
 
-def load_texts_from_dir(directory_path: str, status_callback: Callable = None) -> str:
-    """Načíta obsah všetkých .txt súborov z daného priečinka a spojí ich."""
-    all_texts = []
-    if not os.path.isdir(directory_path):
-        if status_callback:
-            status_callback(f"Info: Priečinok '{directory_path}' neexistuje. Preskakujem.")
+# --- Inicializácia klienta --- 
+genai.configure(api_key=GEMINI_API_KEY)
+
+# --- Pomocné funkcie ---
+def read_all_texts_from_dir(directory: str) -> str:
+    """Načíta a spojí obsah všetkých .txt súborov z daného priečinka."""
+    full_text = ""
+    if not os.path.isdir(directory):
         return ""
-
-    for filename in sorted(os.listdir(directory_path)):
-        if filename.lower().endswith('.txt'):
-            file_path = os.path.join(directory_path, filename)
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    all_texts.append(f.read())
-            except Exception as e:
-                if status_callback:
-                    status_callback(f"Chyba pri čítaní súboru {file_path}: {e}")
-    
-    return "\n\n--- ďalší dokument ---\n\n".join(all_texts)
-
-def analyze_and_save(
-    project_id: str, 
-    location: str, 
-    model_name: str, 
-    prompt: str, 
-    documents_text: str,
-    output_path: str,
-    status_callback: Callable = None
-):
-    """Pošle text do modelu Gemini a výsledok uloží do súboru."""
-    if status_callback:
-        status_callback("Inicializujem Gemini klienta...")
-    client = genai.Client(
-        vertexai=True,
-        project=project_id,
-        location=location,
-    )
-
-    full_prompt = f"{prompt}\n\nDokumenty na analýzu:\n---\n{documents_text}"
-    contents = [types.Content(role="user", parts=[types.Part(text=full_prompt)])]
-
-    if status_callback:
-        status_callback(f"Posielam dáta na analýzu do modelu '{model_name}'...")
-    response_stream = client.models.generate_content_stream(model=model_name, contents=contents)
-
-    try:
-        with open(output_path, "w", encoding="utf-8") as f:
-            for chunk in response_stream:
-                f.write(chunk.text)
-        if status_callback:
-            status_callback(f"Výsledok analýzy bol úspešne uložený do: {output_path}")
-    except Exception as e:
-        if status_callback:
-            status_callback(f"Nastala chyba pri ukladaní výsledku analýzy: {e}")
-
-def run_analysis(event_id: str, anonymized_dir: str, general_dir: str, analysis_dir: str, status_callback: Callable = None):
-    """Hlavná logika pre spustenie analýzy jednej poistnej udalosti."""
-    if status_callback:
-        status_callback(f"Spúšťam analýzu poistnej udalosti: {event_id}...")
-
-    anonymized_path = os.path.join(anonymized_dir, event_id)
-    general_path = os.path.join(general_dir, event_id)
-
-    if status_callback:
-        status_callback(f"Načítavam anonymizované texty z: {anonymized_path}...")
-    anonymized_texts = load_texts_from_dir(anonymized_path, status_callback)
-    
-    if status_callback:
-        status_callback(f"Načítavam všeobecné texty z: {general_path}...")
-    general_texts = load_texts_from_dir(general_path, status_callback)
-    
-    combined_text = anonymized_texts + "\n\n--- všeobecné dokumenty ---\n\n" + general_texts
-    
-    if not combined_text.strip():
-        if status_callback:
-            status_callback("Nenašli sa žiadne texty na analýzu. Končím.")
-        return None
         
-    os.makedirs(analysis_dir, exist_ok=True)
-    output_file = os.path.join(analysis_dir, f"{event_id}_analyza.txt")
+    for filepath in sorted(glob.glob(os.path.join(directory, '*.txt'))):
+        with open(filepath, 'r', encoding='utf-8') as f:
+            filename = os.path.basename(filepath)
+            full_text += f"\n--- Začiatok dokumentu: {filename} ---\n"
+            full_text += f.read()
+            full_text += f"\n--- Koniec dokumentu: {filename} ---\n"
+    return full_text
 
-    analyze_and_save(
-        PROJECT_ID, ANALYSIS_LOCATION, MODEL_NAME, ANALYSIS_PROMPT, combined_text, output_file, status_callback
-    )
-    return output_file
+# --- Hlavná funkcia --- 
+def run_analysis(event_id: str, anonymized_dir: str, general_dir: str, analysis_dir: str, status_callback: Callable):
+    """Spustí analýzu všetkých textov pre danú udalosť pomocou Gemini."""
+    status_callback(f"Spúšťam analýzu poistnej udalosti: {event_id}...")
 
+    # Cesty k priečinkom s textami pre danú udalosť
+    anonymized_event_dir = os.path.join(anonymized_dir, event_id)
+    general_event_dir = os.path.join(general_dir, event_id)
+
+    # Načítanie všetkých textov
+    status_callback(f"Načítavam anonymizované texty z: {os.path.basename(anonymized_dir)}/{event_id}...")
+    anonymized_texts = read_all_texts_from_dir(anonymized_event_dir)
+    
+    status_callback(f"Načítavam všeobecné texty z: {os.path.basename(general_dir)}/{event_id}...")
+    general_texts = read_all_texts_from_dir(general_event_dir)
+
+    combined_text = "Nasledujú anonymizované texty z citlivých dokumentov:\n" + anonymized_texts + \
+                      "\n\nNasledujú texty zo všeobecných dokumentov:\n" + general_texts
+
+    if not anonymized_texts and not general_texts:
+        status_callback("Chyba: Pre túto udalosť neboli nájdené žiadne texty na analýzu.")
+        return None
+
+    # Príprava a volanie Gemini modelu
+    try:
+        status_callback(f"Inicializujem Gemini klienta...")
+        model = genai.GenerativeModel(GEMINI_MODEL)
+        
+        full_prompt = ANALYSIS_PROMPT + "\n\n" + combined_text
+        
+        status_callback(f"Posielam dáta na analýzu do modelu '{GEMINI_MODEL}'...")
+        response = model.generate_content(full_prompt)
+        analysis_result = response.text
+
+        # Uloženie výsledku
+        os.makedirs(analysis_dir, exist_ok=True)
+        result_path = os.path.join(analysis_dir, f"{event_id}_analyza.txt")
+        with open(result_path, 'w', encoding='utf-8') as f:
+            f.write(analysis_result)
+        
+        status_callback(f"Výsledok analýzy bol úspešne uložený do: {result_path}")
+        return result_path
+
+    except Exception as e:
+        status_callback(f"Chyba pri komunikácii s Gemini API: {e}")
+        raise
+
+# --- Spustenie z príkazového riadku ---
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Analyzuj textové dáta jednej poistnej udalosti a ulož výsledok.")
-    parser.add_argument("event_id", help="ID poistnej udalosti.")
-    parser.add_argument("--anonymized_dir", default="anonymized_output")
-    parser.add_argument("--general_dir", default="general_output")
-    parser.add_argument("--analysis_dir", default="analysis_output")
+    parser = argparse.ArgumentParser(description="Analyzuj texty jednej poistnej udalosti pomocou Gemini.")
+    parser.add_argument("event_id", help="ID (názov priečinka) poistnej udalosti.")
+    parser.add_argument("--anonymized_dir", default="anonymized_output", help="Hlavný priečinok s anonymizovanými textami.")
+    parser.add_argument("--general_dir", default="general_output", help="Hlavný priečinok so všeobecnými textami.")
+    parser.add_argument("--analysis_dir", default="analysis_output", help="Priečinok pre uloženie výslednej analýzy.")
     args = parser.parse_args()
 
     run_analysis(args.event_id, args.anonymized_dir, args.general_dir, args.analysis_dir, print)

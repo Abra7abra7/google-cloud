@@ -1,4 +1,8 @@
+# Základné knižnice pre Streamlit a Google Cloud
+streamlit
 google-cloud-documentai
 google-cloud-dlp
-streamlit
 google-generativeai
+
+# Knižnica pre prácu s konfiguračnými súbormi
+configparser
