@@ -1,6 +1,6 @@
 import os
 import argparse
-import configparser
+from dotenv import load_dotenv
 from typing import Callable
 
 from google.api_core.client_options import ClientOptions
@@ -9,17 +9,24 @@ from google.cloud import dlp_v2
 from db import init_db, get_session, ClaimEvent, DocumentText
 
 # --- Konfigurácia ---
-# Načítanie nastavení z externého súboru pre jednoduchú správu.
-config = configparser.ConfigParser()
-config.read('config.ini', encoding='utf-8')
+# Načítanie prostredia z .env.local (jediný zdroj pravdy)
+load_dotenv('.env.local', override=True)
+load_dotenv(override=False)
 
-PROJECT_ID = config.get('gcp', 'project_id')
-DOC_AI_LOCATION = config.get('document_ai', 'location')
-PROCESSOR_ID = config.get('document_ai', 'processor_id')
-DLP_TEMPLATE_ID = config.get('dlp', 'template_id')
-DLF_LOCATION = config.get('dlp', 'location', fallback='global')
-DLF_INSPECT_TEMPLATE_ID = config.get('dlp', 'inspect_template_id', fallback='').strip()
-MIME_TYPE = config.get('document_ai', 'mime_type')
+PROJECT_ID = os.getenv('GOOGLE_CLOUD_PROJECT')
+DOC_AI_LOCATION = os.getenv('DOCUMENT_AI_LOCATION', 'eu')
+PROCESSOR_ID = os.getenv('DOCUMENT_AI_PROCESSOR_ID')
+DLP_TEMPLATE_ID = os.getenv('DLP_DEIDENTIFY_TEMPLATE_ID')
+DLF_LOCATION = os.getenv('DLP_LOCATION', 'europe-west3')
+DLF_INSPECT_TEMPLATE_ID = (os.getenv('DLP_INSPECT_TEMPLATE_ID') or '').strip()
+MIME_TYPE = os.getenv('DOCUMENT_AI_MIME_TYPE', 'application/pdf')
+
+if not PROJECT_ID:
+    raise ValueError('GOOGLE_CLOUD_PROJECT musí byť nastavený')
+if not PROCESSOR_ID:
+    raise ValueError('DOCUMENT_AI_PROCESSOR_ID musí byť nastavený')
+if not DLP_TEMPLATE_ID:
+    raise ValueError('DLP_DEIDENTIFY_TEMPLATE_ID musí byť nastavený')
 
 # --- Funkcie pre Google Cloud služby ---
 def process_document(
