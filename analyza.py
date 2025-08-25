@@ -5,6 +5,7 @@ import glob
 from typing import Callable
 
 import google.generativeai as genai
+from db import get_session, AnalysisResult
 
 # --- Konfigurácia ---
 config = configparser.ConfigParser()
@@ -49,7 +50,7 @@ def run_analysis(event_id: str, anonymized_dir: str, general_dir: str, analysis_
     general_texts = read_all_texts_from_dir(general_event_dir)
 
     combined_text = "Nasledujú anonymizované texty z citlivých dokumentov:\n" + anonymized_texts + \
-                      "\n\nNasledujú texty zo všeobecných dokumentov:\n" + general_texts
+                     "\n\nNasledujú texty zo všeobecných dokumentov:\n" + general_texts
 
     if not anonymized_texts and not general_texts:
         status_callback("Chyba: Pre túto udalosť neboli nájdené žiadne texty na analýzu.")
@@ -66,11 +67,22 @@ def run_analysis(event_id: str, anonymized_dir: str, general_dir: str, analysis_
         response = model.generate_content(full_prompt)
         analysis_result = response.text
 
-        # Uloženie výsledku
+        # Uloženie výsledku na disk
         os.makedirs(analysis_dir, exist_ok=True)
         result_path = os.path.join(analysis_dir, f"{event_id}_analyza.txt")
         with open(result_path, 'w', encoding='utf-8') as f:
             f.write(analysis_result)
+
+        # Perzistencia do DB (ak je nakonfigurovaná)
+        session = get_session()
+        if session is not None:
+            try:
+                session.add(AnalysisResult(event_id=event_id, model=GEMINI_MODEL, summary_text=analysis_result))
+                session.commit()
+            except Exception:
+                session.rollback()
+            finally:
+                session.close()
         
         status_callback(f"Výsledok analýzy bol úspešne uložený do: {result_path}")
         return result_path
@@ -78,6 +90,27 @@ def run_analysis(event_id: str, anonymized_dir: str, general_dir: str, analysis_
     except Exception as e:
         status_callback(f"Chyba pri komunikácii s Gemini API: {e}")
         raise
+
+def analyze_text(input_text: str, prompt: str) -> str:
+    model = genai.GenerativeModel(GEMINI_MODEL)
+    response = model.generate_content(prompt + "\n\n" + input_text)
+    return response.text
+
+def analyze_single_document(event_id: str, filename: str, anonymized_dir: str, general_dir: str, prompt: str | None) -> str:
+    anon_path = os.path.join(anonymized_dir, event_id, filename)
+    gen_path = os.path.join(general_dir, event_id, filename)
+    text = ""
+    if os.path.exists(anon_path):
+        with open(anon_path, 'r', encoding='utf-8') as f:
+            text = f.read()
+    elif os.path.exists(gen_path):
+        with open(gen_path, 'r', encoding='utf-8') as f:
+            text = f.read()
+    else:
+        raise FileNotFoundError("Súbor pre analýzu neexistuje v anonymized ani general výstupoch.")
+
+    use_prompt = prompt or ANALYSIS_PROMPT
+    return analyze_text(text, use_prompt)
 
 # --- Spustenie z príkazového riadku ---
 if __name__ == "__main__":

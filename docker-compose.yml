@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # MySQL databáza
+  mysql:
+    image: mysql:8.0
+    container_name: claims_ai_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: claims_ai
+      MYSQL_USER: claims_user
+      MYSQL_PASSWORD: claims_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - claims_ai_network
+
+  # Claims AI aplikácia
+  claims_ai:
+    build: .
+    container_name: claims_ai_app
+    restart: unless-stopped
+    ports:
+      - "8501:8501"  # Streamlit
+      - "8000:8000"  # FastAPI
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/service-account-key.json
+      - GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
+      - DATABASE_URL=mysql+pymysql://claims_user:claims_password@mysql:3306/claims_ai
+    volumes:
+      - ./poistne_udalosti:/app/poistne_udalosti
+      - ./anonymized_output:/app/anonymized_output
+      - ./general_output:/app/general_output
+      - ./raw_ocr_output:/app/raw_ocr_output
+      - ./analysis_output:/app/analysis_output
+      - ./service-account-key.json:/app/service-account-key.json:ro
+    depends_on:
+      - mysql
+    networks:
+      - claims_ai_network
+
+  # Nginx reverse proxy (voliteľné)
+  nginx:
+    image: nginx:alpine
+    container_name: claims_ai_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - claims_ai
+    networks:
+      - claims_ai_network
+
+volumes:
+  mysql_data:
+
+networks:
+  claims_ai_network:
+    driver: bridge

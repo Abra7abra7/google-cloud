@@ -6,6 +6,7 @@ from typing import Callable
 from google.api_core.client_options import ClientOptions
 from google.cloud import documentai_v1 as documentai
 from google.cloud import dlp_v2
+from db import init_db, get_session, ClaimEvent, DocumentText
 
 # --- Konfigurácia ---
 # Načítanie nastavení z externého súboru pre jednoduchú správu.
@@ -16,6 +17,8 @@ PROJECT_ID = config.get('gcp', 'project_id')
 DOC_AI_LOCATION = config.get('document_ai', 'location')
 PROCESSOR_ID = config.get('document_ai', 'processor_id')
 DLP_TEMPLATE_ID = config.get('dlp', 'template_id')
+DLF_LOCATION = config.get('dlp', 'location', fallback='global')
+DLF_INSPECT_TEMPLATE_ID = config.get('dlp', 'inspect_template_id', fallback='').strip()
 MIME_TYPE = config.get('document_ai', 'mime_type')
 
 # --- Funkcie pre Google Cloud služby ---
@@ -23,6 +26,10 @@ def process_document(
     project_id: str, location: str, processor_id: str, file_path: str, mime_type: str
 ) -> str:
     """Spracuje jeden dokument pomocou Document AI (OCR) a vráti extrahovaný text."""
+    # Explicitne nastavíme projekt ID pre Google Cloud SDK
+    import os
+    os.environ['GOOGLE_CLOUD_PROJECT'] = project_id
+    
     client_options = {"api_endpoint": f"{location}-documentai.googleapis.com"}
     client = documentai.DocumentProcessorServiceClient(client_options=client_options)
     name = client.processor_path(project_id, location, processor_id)
@@ -35,17 +42,32 @@ def process_document(
     result = client.process_document(request=request)
     return result.document.text
 
+def ocr_document(file_path: str, mime_type: str = None) -> str:
+    """Vykoná iba OCR nad daným PDF a vráti text."""
+    effective_mime = mime_type or MIME_TYPE
+    return process_document(PROJECT_ID, DOC_AI_LOCATION, PROCESSOR_ID, file_path, effective_mime)
+
 def anonymize_text(
     project_id: str, text_to_anonymize: str, dlp_template_id: str
 ) -> str:
     """Anonymizuje text pomocou Cloud DLP de-identifikačnej šablóny."""
+    # Explicitne nastavíme projekt ID pre Google Cloud SDK
+    import os
+    os.environ['GOOGLE_CLOUD_PROJECT'] = project_id
+    
     dlp_client = dlp_v2.DlpServiceClient()
-    parent = f"projects/{project_id}/locations/global"
-    request = dlp_v2.DeidentifyContentRequest(
-        parent=parent,
-        deidentify_template_name=dlp_template_id,
-        item={"value": text_to_anonymize},
-    )
+    parent = f"projects/{project_id}/locations/{DLF_LOCATION}"
+
+    # Zostavenie požiadavky s voliteľnou inspect šablónou
+    request_kwargs = {
+        "parent": parent,
+        "deidentify_template_name": dlp_template_id,
+        "item": {"value": text_to_anonymize},
+    }
+    if DLF_INSPECT_TEMPLATE_ID:
+        request_kwargs["inspect_template_name"] = DLF_INSPECT_TEMPLATE_ID
+
+    request = dlp_v2.DeidentifyContentRequest(**request_kwargs)
     response = dlp_client.deidentify_content(request=request)
     return response.item.value
 
@@ -63,7 +85,26 @@ def ocr_and_anonymize(file_path: str, raw_ocr_dir: str):
         f.write(text)
 
     # 3. Anonymizácia
-    return anonymize_text(PROJECT_ID, text, DLP_TEMPLATE_ID)
+    anonymized = anonymize_text(PROJECT_ID, text, DLP_TEMPLATE_ID)
+
+    # 4. Uloženie do DB (ak je nakonfigurovaná)
+    session = get_session()
+    if session is not None:
+        try:
+            doc = DocumentText(
+                event_id=os.path.basename(os.path.dirname(raw_ocr_dir)),
+                filename=os.path.basename(file_path),
+                ocr_text=text,
+                anonymized_text=anonymized,
+            )
+            session.add(doc)
+            session.commit()
+        except Exception:
+            session.rollback()
+        finally:
+            session.close()
+
+    return anonymized
 
 def process_directory(base_path: str, process_func: Callable, output_dir: str, status_callback: Callable):
     """Spracuje všetky PDF súbory v danom priečinku pomocou poskytnutej funkcie."""
@@ -98,6 +139,21 @@ def run_processing(event_path: str, anonymized_dir: str, general_dir: str, raw_o
         return
 
     event_id = os.path.basename(event_path)
+    # inicializácia DB tabuliek ak treba
+    try:
+        init_db()
+        session = get_session()
+        if session is not None:
+            try:
+                if session.query(ClaimEvent).filter_by(event_id=event_id).first() is None:
+                    session.add(ClaimEvent(event_id=event_id))
+                    session.commit()
+            except Exception:
+                session.rollback()
+            finally:
+                session.close()
+    except Exception:
+        pass
     status_callback(f"Spúšťam spracovanie poistnej udalosti: {event_id}...")
 
     # Cesty k pod-priečinkom

@@ -2,10 +2,12 @@ import os
 import streamlit as st
 import datetime
 import glob
+import difflib
 
 # Importujeme refaktorované funkcie z našich skriptov
 from main import run_processing
 from analyza import run_analysis
+from db import get_session, DocumentText, AnalysisResult, ClaimEvent
 
 # --- Konfigurácia Streamlit aplikácie ---
 st.set_page_config(page_title="Analýza Poistných Udalostí", layout="wide")
@@ -125,8 +127,8 @@ def display_results(event_id):
         run_full_process(event_id)
 
 def display_analysis_tabs(event_id, result_path):
-    """Zobrazí výsledky v záložkách (Finálna analýza a Detailné výstupy)."""
-    tab1, tab2 = st.tabs(["Finálna Analýza", "Detailné výstupy (Human-in-the-loop)"])
+    """Zobrazí výsledky v záložkách (Finálna analýza, Detailné výstupy, DB prehľad)."""
+    tab1, tab2, tab3 = st.tabs(["Finálna Analýza", "Detailné výstupy (Human-in-the-loop)", "DB prehľad"])
 
     with tab1:
         st.subheader("Súhrnná analýza (Gemini)")
@@ -136,6 +138,9 @@ def display_analysis_tabs(event_id, result_path):
 
     with tab2:
         display_detailed_outputs(event_id)
+
+    with tab3:
+        display_db_status(event_id)
 
 def display_detailed_outputs(event_id):
     """Zobrazí detailné porovnanie OCR vs. anonymizovaného textu."""
@@ -158,6 +163,16 @@ def display_detailed_outputs(event_id):
                 with col_raw: st.text_area("Pôvodný text (OCR)", raw_content, height=300, key=f"raw_{doc_name}")
                 with col_anon: st.text_area("Anonymizovaný text", anonymized_content, height=300, key=f"anon_{doc_name}")
 
+                diff = difflib.unified_diff(
+                    (raw_content or "").splitlines(),
+                    (anonymized_content or "").splitlines(),
+                    fromfile='OCR', tofile='ANON', lineterm=''
+                )
+                diff_text = '\n'.join(diff)
+                if diff_text:
+                    st.markdown("**Zvýraznené rozdiely (diff):**")
+                    st.code(diff_text, language='diff')
+
     # Všeobecné dokumenty
     st.markdown("#### Všeobecné dokumenty")
     general_event_dir = os.path.join(GENERAL_DIR, event_id)
@@ -169,6 +184,50 @@ def display_detailed_outputs(event_id):
             doc_name = os.path.basename(doc_path)
             with st.expander(f"Dokument: {doc_name}"):
                 st.text_area("OCR Text", read_file_content(doc_path), height=300, key=f"gen_{doc_name}")
+
+def display_db_status(event_id: str):
+    """Zobrazí prehľad záznamov uložených v databáze pre vybranú udalosť."""
+    st.subheader("Databázové záznamy (SQLite/MySQL)")
+    session = get_session()
+    if session is None:
+        st.info("Databáza nie je nakonfigurovaná alebo je vypnutá v config.ini.")
+        return
+    try:
+        total_events = session.query(ClaimEvent).count()
+        total_docs = session.query(DocumentText).count()
+        total_analysis = session.query(AnalysisResult).count()
+        st.markdown(f"- Počet udalostí v DB: **{total_events}**")
+        st.markdown(f"- Počet dokumentov v DB: **{total_docs}**")
+        st.markdown(f"- Počet analýz v DB: **{total_analysis}**")
+
+        st.markdown("\nZáznamy pre vybranú udalosť:")
+        docs = session.query(DocumentText).filter_by(event_id=event_id).all()
+        if docs:
+            for d in docs:
+                with st.expander(f"Dokument v DB: {d.filename}"):
+                    st.write({
+                        "event_id": d.event_id,
+                        "filename": d.filename,
+                        "ocr_text_len": len(d.ocr_text or ''),
+                        "anonymized_text_len": len(d.anonymized_text or ''),
+                        "created_at": str(getattr(d, 'created_at', '')),
+                    })
+        else:
+            st.info("Pre túto udalosť zatiaľ nie sú uložené žiadne dokumenty v DB.")
+
+        analyses = session.query(AnalysisResult).filter_by(event_id=event_id).all()
+        if analyses:
+            for a in analyses:
+                with st.expander("Výsledok analýzy v DB"):
+                    st.write({
+                        "model": a.model,
+                        "created_at": str(getattr(a, 'created_at', '')),
+                        "summary_preview": (a.summary_text or '')[:400] + ("..." if a.summary_text and len(a.summary_text) > 400 else ""),
+                    })
+        else:
+            st.info("Pre túto udalosť zatiaľ nie je uložená žiadna analýza v DB.")
+    finally:
+        session.close()
 
 def run_full_process(event_id):
     """Spustí celý proces spracovania a analýzy a zobrazí priebeh."""
