@@ -11,9 +11,14 @@ from db import get_session, AnalysisResult
 config = configparser.ConfigParser()
 config.read('config.ini', encoding='utf-8')
 
-GEMINI_API_KEY = config.get('gemini', 'api_key')
+# API kľúč z environment variables alebo config.ini (fallback)
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY') or config.get('gemini', 'api_key', fallback=None)
 GEMINI_MODEL = config.get('gemini', 'model')
 ANALYSIS_PROMPT = config.get('gemini', 'analysis_prompt')
+
+# Kontrola API kľúča
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY musí byť nastavený v environment variables alebo config.ini")
 
 # --- Inicializácia klienta --- 
 genai.configure(api_key=GEMINI_API_KEY)
