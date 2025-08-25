@@ -55,16 +55,23 @@ raw_ocr_output/
 analysis_output/
 poistne_udalosti/
 
-# Google Cloud
+# Google Cloud - CRITICAL: Never commit these!
 *.json
 !config.ini
 service-account-key.json
+*-abf1c40fcb2d.json
 claims-ai-prototype-1-*.json
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
 
 # Environment variables
 .env
 .env.local
 .env.production
+.env.*
 
 # Logs
 *.log
@@ -90,3 +97,9 @@ logs/
 *.sql
 *.dump
 backup/
+
+# API Keys and Secrets
+api_key.txt
+secrets.txt
+credentials.json
+token.json

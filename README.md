@@ -298,6 +298,19 @@ docker-compose logs -f claims_ai
 - **OS**: Ubuntu 22.04 LTS
 
 ### Bezpečnosť
+
+#### ⚠️ **KRITICKÉ: Ochrana citlivých údajov**
+- **NIKDY NEUPLOADOVAŤ** `service-account-key.json` na GitHub
+- **NIKDY NEUPLOADOVAŤ** `.env` súbory s API kľúčmi
+- **NIKDY NEUPLOADOVAŤ** `claims-ai-prototype-1-*.json` súbory
+
+#### Bezpečnostné opatrenia
+- Všetky citlivé súbory sú v `.gitignore`
+- Používajte `.env.local` pre lokálne nastavenia
+- Service account kľúče majú minimálne potrebné oprávnenia
+- Databázové credentials sú bezpečné
+
+#### SSL/HTTPS
 - SSL/HTTPS certifikáty
 - Firewall pravidlá
 - Service account s minimálnymi oprávneniami
