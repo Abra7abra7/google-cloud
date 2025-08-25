@@ -55,65 +55,158 @@ pip install -r requirements.txt
 ```
 
 ### 3. Konfigurácia Google Cloud
-1. Stiahnite service account JSON kľúč z GCP Console
-2. Umiestnite `service-account-key.json` do koreňového priečinka
-3. Nastavte environment variable:
+
+#### 3.1 Service Account JSON kľúč
+1. **GCP Console** → IAM & Admin → Service Accounts
+2. **Vytvorte nový Service Account** alebo použite existujúci
+3. **Pridajte role:**
+   - Document AI API User
+   - Cloud DLP User
+   - Vertex AI User
+4. **Vytvorte JSON kľúč** a stiahnite `service-account-key.json`
+5. **Umiestnite súbor** do koreňového priečinka projektu
+
+#### 3.2 Environment Variables
+**Windows PowerShell:**
+```powershell
+$env:GOOGLE_APPLICATION_CREDENTIALS="service-account-key.json"
+$env:GOOGLE_CLOUD_PROJECT="claims-ai-prototype-1"
+$env:GEMINI_API_KEY="your-actual-gemini-api-key-here"
+```
+
+**Windows CMD:**
+```cmd
+set GOOGLE_APPLICATION_CREDENTIALS=service-account-key.json
+set GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
+set GEMINI_API_KEY=your-actual-gemini-api-key-here
+```
+
+**Linux/macOS:**
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS="service-account-key.json"
+export GOOGLE_CLOUD_PROJECT="claims-ai-prototype-1"
+export GEMINI_API_KEY="your-actual-gemini-api-key-here"
+```
+
+#### 3.3 Gemini API Kľúč
+1. **Google AI Studio** → https://makersuite.google.com/app/apikey
+2. **Vytvorte nový API kľúč**
+3. **Nastavte environment variable** `GEMINI_API_KEY`
+4. **NIKDY NEUPLOADOVAŤ** API kľúč na GitHub!
+
+#### 3.4 Použitie .env.local súboru (odporúčané)
+1. **Skopírujte** `env.example` ako `.env.local`
+2. **Upravte** `.env.local` s vašimi skutočnými hodnotami:
    ```bash
-   # Windows PowerShell
-   $env:GOOGLE_APPLICATION_CREDENTIALS="service-account-key.json"
-   
-   # Windows CMD
-   set GOOGLE_APPLICATION_CREDENTIALS=service-account-key.json
-   
-   # Linux/macOS
-   export GOOGLE_APPLICATION_CREDENTIALS="service-account-key.json"
+   # .env.local
+   GOOGLE_APPLICATION_CREDENTIALS=service-account-key.json
+   GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
+   GEMINI_API_KEY=your-actual-gemini-api-key-here
+   DATABASE_URL=sqlite:///claims_ai.db
    ```
+3. **Aplikácia automaticky načíta** `.env.local` súbor
+4. **NIKDY NEUPLOADOVAŤ** `.env.local` na GitHub!
 
 ### 4. Konfigurácia aplikácie
+
+#### 4.1 config.ini (GCP nastavenia)
 Upravte `config.ini` s vašimi GCP údajmi:
 
 ```ini
-[google_cloud]
-project_id = YOUR_PROJECT_ID
-location = europe-west3
+[gcp]
+project_id = claims-ai-prototype-1
 
 [document_ai]
-processor_id = YOUR_PROCESSOR_ID
-location = europe-west3
+location = eu
+processor_id = 1e3f139679670c26
+mime_type = application/pdf
 
 [dlp]
 location = europe-west3
-template_id = projects/YOUR_PROJECT_ID/locations/europe-west3/deidentifyTemplates/YOUR_TEMPLATE_ID
-inspect_template_id = projects/YOUR_PROJECT_ID/locations/europe-west3/inspectTemplates/YOUR_TEMPLATE_ID
+template_id = projects/claims-ai-prototype-1/locations/europe-west3/deidentifyTemplates/de-identify-sensitive-data
+inspect_template_id = projects/claims-ai-prototype-1/locations/europe-west3/inspectTemplates/find-sensitive-data
 
 [gemini]
-api_key = YOUR_GEMINI_API_KEY
-model = gemini-1.5-flash
+# api_key = YOUR_GEMINI_API_KEY  # NIKDY NEUPLOADOVAŤ!
+model = gemini-1.5-flash-latest
+analysis_prompt = Zhrň kľúčové body z nasledujúcich poistných dokumentov...
 
 [database]
 url = sqlite:///claims_ai.db
 # Pre MySQL: mysql+pymysql://user:password@localhost/dbname
 ```
 
+#### 4.2 Dôležité poznámky
+- **project_id**: Použite váš GCP projekt ID
+- **processor_id**: Document AI processor ID z GCP Console
+- **template_id**: DLP de-identify template ID
+- **inspect_template_id**: DLP inspect template ID
+- **api_key**: NIKDY NEUPLOADOVAŤ - použite environment variable
+
+#### 4.3 Environment Variables - Prehľad
+```bash
+# Povinné pre funkčnosť aplikácie:
+GOOGLE_APPLICATION_CREDENTIALS=service-account-key.json
+GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
+GEMINI_API_KEY=your-actual-gemini-api-key-here
+
+# Voliteľné:
+DATABASE_URL=sqlite:///claims_ai.db
+STREAMLIT_SERVER_PORT=8501
+STREAMLIT_SERVER_ADDRESS=0.0.0.0
+API_HOST=0.0.0.0
+API_PORT=8000
+```
+
+#### 4.4 Bezpečnostné odporúčania
+- **NIKDY NEUPLOADOVAŤ** `service-account-key.json` na GitHub
+- **NIKDY NEUPLOADOVAŤ** `.env.local` súbor na GitHub
+- **NIKDY NEUPLOADOVAŤ** API kľúče v kóde
+- **Používajte environment variables** pre všetky citlivé údaje
+- **Skontrolujte .gitignore** pred každým commitom
+
 ## Používanie
 
 ### Streamlit Webová Aplikácia
+
+#### 5.1 Spustenie aplikácie
 ```bash
+# Nastavte environment variables
+$env:GOOGLE_APPLICATION_CREDENTIALS="service-account-key.json"
+$env:GOOGLE_CLOUD_PROJECT="claims-ai-prototype-1"
+$env:GEMINI_API_KEY="your-actual-gemini-api-key-here"
+
+# Spustite Streamlit
 streamlit run app_streamlit.py
 ```
-- URL: http://localhost:8501
-- Upload PDF dokumentov
-- Spracovanie poistných udalostí
-- Zobrazenie OCR textu vs. anonymizovaného textu
-- Prehľad databázy
+
+#### 5.2 Prístup k aplikácii
+- **URL**: http://localhost:8501
+- **Funkcie**:
+  - Upload PDF dokumentov
+  - Spracovanie poistných udalostí
+  - Zobrazenie OCR textu vs. anonymizovaného textu
+  - Prehľad databázy
+  - Spracovanie citlivých a všeobecných dokumentov
 
 ### FastAPI REST API
+
+#### 6.1 Spustenie API
 ```bash
+# Nastavte environment variables
+$env:GOOGLE_APPLICATION_CREDENTIALS="service-account-key.json"
+$env:GOOGLE_CLOUD_PROJECT="claims-ai-prototype-1"
+$env:GEMINI_API_KEY="your-actual-gemini-api-key-here"
+
+# Spustite FastAPI
 uvicorn api:app --host 0.0.0.0 --port 8000 --reload
 ```
-- URL: http://localhost:8000
-- Swagger dokumentácia: http://localhost:8000/docs
-- OpenAPI JSON: http://localhost:8000/openapi.json
+
+#### 6.2 Prístup k API
+- **API URL**: http://localhost:8000
+- **Swagger dokumentácia**: http://localhost:8000/docs
+- **OpenAPI JSON**: http://localhost:8000/openapi.json
+- **Health check**: http://localhost:8000/health
 
 #### API Endpointy
 
@@ -216,6 +309,34 @@ google-cloud/
 - `claim_events` - Poistné udalosti
 - `document_texts` - OCR a anonymizované texty
 - `analysis_results` - AI analýzy
+
+## Testovanie aplikácie
+
+### 7.1 Kontrola funkčnosti
+1. **Spustite Streamlit**: `streamlit run app_streamlit.py`
+2. **Spustite FastAPI**: `uvicorn api:app --reload`
+3. **Otestujte API endpointy** cez Swagger UI
+4. **Upload test PDF** a spracujte ho
+
+### 7.2 Testovacie kroky
+```bash
+# 1. Kontrola health endpointu
+curl http://localhost:8000/health
+
+# 2. Upload test PDF
+curl -X POST "http://localhost:8000/upload/test-event" \
+  -F "file=@test-document.pdf"
+
+# 3. OCR spracovanie
+curl -X POST "http://localhost:8000/ocr/test-event" \
+  -H "Content-Type: application/json" \
+  -d '{"filename": "test-document.pdf"}'
+
+# 4. Anonymizácia
+curl -X POST "http://localhost:8000/anonymize/test-event" \
+  -H "Content-Type: application/json" \
+  -d '{"filename": "test-document.pdf"}'
+```
 
 ## Troubleshooting
 
