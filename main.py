@@ -91,8 +91,10 @@ def ocr_and_anonymize(file_path: str, raw_ocr_dir: str):
     session = get_session()
     if session is not None:
         try:
+            # Získanie event_id z cesty k raw_ocr_dir a vyčistenie od medzier
+            event_id = os.path.basename(os.path.dirname(raw_ocr_dir)).strip()
             doc = DocumentText(
-                event_id=os.path.basename(os.path.dirname(raw_ocr_dir)),
+                event_id=event_id,
                 filename=os.path.basename(file_path),
                 ocr_text=text,
                 anonymized_text=anonymized,
@@ -138,7 +140,7 @@ def run_processing(event_path: str, anonymized_dir: str, general_dir: str, raw_o
         status_callback(f"Chyba: Zadaná cesta '{event_path}' nie je platný priečinok.")
         return
 
-    event_id = os.path.basename(event_path)
+    event_id = os.path.basename(event_path).strip()
     # inicializácia DB tabuliek ak treba
     try:
         init_db()

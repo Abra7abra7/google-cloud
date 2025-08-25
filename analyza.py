@@ -1,27 +1,41 @@
 import os
 import argparse
-import configparser
 import glob
 from typing import Callable
 
-import google.generativeai as genai
-from db import get_session, AnalysisResult
+from dotenv import load_dotenv
+from db import get_session, AnalysisResult, get_active_prompt, PromptRun
 
 # --- Konfigurácia ---
-config = configparser.ConfigParser()
-config.read('config.ini', encoding='utf-8')
+load_dotenv('.env.local', override=True)
+load_dotenv(override=False)
 
-# API kľúč z environment variables alebo config.ini (fallback)
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY') or config.get('gemini', 'api_key', fallback=None)
-GEMINI_MODEL = config.get('gemini', 'model')
-ANALYSIS_PROMPT = config.get('gemini', 'analysis_prompt')
+USE_VERTEX_AI = (os.getenv('USE_VERTEX_AI') or '0').strip() in ('1', 'true', 'True')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')
+ANALYSIS_PROMPT = os.getenv('ANALYSIS_PROMPT', 'Zhrň kľúčové body z nasledujúcich poistných dokumentov. Zameraj sa na typ poistenia, poistné sumy, dátumy platnosti a mená zúčastnených strán. Vypíš výsledok v prehľadnej štruktúre.')
+GCP_PROJECT = os.getenv('GOOGLE_CLOUD_PROJECT')
+VERTEX_LOCATION = os.getenv('VERTEX_AI_LOCATION', 'europe-west1')
 
-# Kontrola API kľúča
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY musí byť nastavený v environment variables alebo config.ini")
+# --- Inicializácia klientov ---
+if USE_VERTEX_AI:
+    # Vertex AI (EU rezidencia podľa location)
+    try:
+        from vertexai import init as vertex_init
+        from vertexai.generative_models import GenerativeModel as VertexGenerativeModel
+    except Exception as e:
+        raise RuntimeError(f"Chýba závislosť google-cloud-aiplatform alebo vertexai: {e}")
 
-# --- Inicializácia klienta --- 
-genai.configure(api_key=GEMINI_API_KEY)
+    if not GCP_PROJECT:
+        raise ValueError("GOOGLE_CLOUD_PROJECT musí byť nastavený pre Vertex AI")
+    vertex_init(project=GCP_PROJECT, location=VERTEX_LOCATION)
+    VertexModel = VertexGenerativeModel
+else:
+    # Google AI Studio (API kľúč)
+    import google.generativeai as genai
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY musí byť nastavený v environment variables alebo config.ini")
+    genai.configure(api_key=GEMINI_API_KEY)
 
 # --- Pomocné funkcie ---
 def read_all_texts_from_dir(directory: str) -> str:
@@ -39,9 +53,55 @@ def read_all_texts_from_dir(directory: str) -> str:
     return full_text
 
 # --- Hlavná funkcia --- 
+def _resolve_vertex_model_name(preferred_model_name: str | None) -> str:
+    """Zmapuje preferovaný názov modelu na alias stabilnej verzie v EU.
+    Používa auto-updated aliasy odporúčané v dokumentácii
+    (napr. gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash) [zdroj].
+    """
+    name = (preferred_model_name or GEMINI_MODEL or '').strip()
+    name_lower = name.lower()
+    # Preferuj stabilný alias gemini-2.0-flash, ak je zadaný rad 2.*
+    if name_lower.startswith('gemini-2'):
+        return 'gemini-2.0-flash'
+    # 1.5 vetvy – použijeme aliasy namiesto pinovanej verzie
+    if 'pro' in name_lower:
+        return 'gemini-1.5-pro'
+    if 'flash' in name_lower or 'gemini-1.5' in name_lower:
+        return 'gemini-1.5-flash'
+    # neznáme → bezpečný default
+    return 'gemini-2.0-flash'
+
+
+def _generate_text(prompt: str, model_name_override: str | None = None) -> str:
+    if USE_VERTEX_AI:
+        vertex_model_name = _resolve_vertex_model_name(model_name_override)
+        model = VertexModel(vertex_model_name)
+        resp = model.generate_content(prompt)
+        return getattr(resp, 'text', None) or ''.join(getattr(resp, 'candidates', []) or [])
+    else:
+        import google.generativeai as genai
+        use_name = (model_name_override or GEMINI_MODEL)
+        model = genai.GenerativeModel(use_name)
+        resp = model.generate_content(prompt)
+        return resp.text
+
+
 def run_analysis(event_id: str, anonymized_dir: str, general_dir: str, analysis_dir: str, status_callback: Callable):
     """Spustí analýzu všetkých textov pre danú udalosť pomocou Gemini."""
+    # Vyčistenie názvu udalosti od medzier
+    event_id = event_id.strip()
     status_callback(f"Spúšťam analýzu poistnej udalosti: {event_id}...")
+
+    # Získanie aktívneho promptu z databázy
+    active_prompt = get_active_prompt()
+    if not active_prompt:
+        status_callback("Varovanie: Používam predvolený prompt z config.ini")
+        prompt_content = ANALYSIS_PROMPT
+        model_name = GEMINI_MODEL
+    else:
+        prompt_content = active_prompt.content
+        model_name = active_prompt.model
+        status_callback(f"Používam prompt: {active_prompt.name} v{active_prompt.version}")
 
     # Cesty k priečinkom s textami pre danú udalosť
     anonymized_event_dir = os.path.join(anonymized_dir, event_id)
@@ -63,14 +123,11 @@ def run_analysis(event_id: str, anonymized_dir: str, general_dir: str, analysis_
 
     # Príprava a volanie Gemini modelu
     try:
-        status_callback(f"Inicializujem Gemini klienta...")
-        model = genai.GenerativeModel(GEMINI_MODEL)
-        
-        full_prompt = ANALYSIS_PROMPT + "\n\n" + combined_text
-        
-        status_callback(f"Posielam dáta na analýzu do modelu '{GEMINI_MODEL}'...")
-        response = model.generate_content(full_prompt)
-        analysis_result = response.text
+        status_callback(f"Inicializujem model...")
+        full_prompt = prompt_content + "\n\n" + combined_text
+        effective_model = _resolve_vertex_model_name(model_name) if USE_VERTEX_AI else (model_name or GEMINI_MODEL)
+        status_callback(f"Posielam dáta na analýzu do modelu '{effective_model}'...")
+        analysis_result = _generate_text(full_prompt, model_name_override=model_name)
 
         # Uloženie výsledku na disk
         os.makedirs(analysis_dir, exist_ok=True)
@@ -82,7 +139,20 @@ def run_analysis(event_id: str, anonymized_dir: str, general_dir: str, analysis_
         session = get_session()
         if session is not None:
             try:
-                session.add(AnalysisResult(event_id=event_id, model=GEMINI_MODEL, summary_text=analysis_result))
+                # Uloženie výsledku analýzy
+                analysis_record = AnalysisResult(event_id=event_id, model=model_name, summary_text=analysis_result)
+                session.add(analysis_record)
+                
+                # Logovanie behu promptu
+                if active_prompt:
+                    prompt_run = PromptRun(
+                        prompt_id=active_prompt.id,
+                        event_id=event_id,
+                        model=model_name
+                        # tokens_in a tokens_out môžeme pridať neskôr ak bude potrebné
+                    )
+                    session.add(prompt_run)
+                
                 session.commit()
             except Exception:
                 session.rollback()
@@ -97,11 +167,11 @@ def run_analysis(event_id: str, anonymized_dir: str, general_dir: str, analysis_
         raise
 
 def analyze_text(input_text: str, prompt: str) -> str:
-    model = genai.GenerativeModel(GEMINI_MODEL)
-    response = model.generate_content(prompt + "\n\n" + input_text)
-    return response.text
+    return _generate_text(prompt + "\n\n" + input_text)
 
 def analyze_single_document(event_id: str, filename: str, anonymized_dir: str, general_dir: str, prompt: str | None) -> str:
+    # Vyčistenie názvu udalosti od medzier
+    event_id = event_id.strip()
     anon_path = os.path.join(anonymized_dir, event_id, filename)
     gen_path = os.path.join(general_dir, event_id, filename)
     text = ""

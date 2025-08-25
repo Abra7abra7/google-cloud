@@ -3,6 +3,8 @@ streamlit
 google-cloud-documentai
 google-cloud-dlp
 google-generativeai
+google-cloud-aiplatform
+python-dotenv
 
 # Knižnica pre prácu s konfiguračnými súbormi
 configparser

@@ -6,7 +6,7 @@
 - [ ] Server má minimálne 4 vCPU, 8GB RAM, 50GB SSD
 - [ ] OS je Ubuntu 20.04+ / CentOS 8+ / RHEL 8+
 - [ ] Docker a Docker Compose sú nainštalované
-- [ ] Firewall je nakonfigurovaný (porty 22, 80, 443, 8501, 8000)
+- [ ] Firewall je nakonfigurovaný (porty 22, 80, 443, 8502, 8000)
 - [ ] SSL certifikát je pripravený (Let's Encrypt alebo komerčný)
 
 ### ✅ Google Cloud
@@ -20,8 +20,8 @@
 ### ✅ Aplikácia
 - [ ] Repository je klonované
 - [ ] Service account kľúč je umiestnený ako `service-account-key.json`
-- [ ] `.env` súbor je nakonfigurovaný
-- [ ] `config.ini` má správne hodnoty
+- [ ] `.env.local` je nakonfigurovaný (jediný zdroj pravdy)
+- [ ] `config.ini` sa nepoužíva (archívny)
 - [ ] Všetky Python závislosti sú nainštalované
 
 ## Nasadenie
@@ -39,7 +39,7 @@
 - [ ] Connection string je správny
 
 ### ✅ Služby
-- [ ] Streamlit beží na porte 8501
+- [ ] Streamlit beží na porte 8502
 - [ ] FastAPI beží na porte 8000
 - [ ] Swagger UI je dostupné na `/docs`
 - [ ] Health endpoint `/health` vracia 200 OK

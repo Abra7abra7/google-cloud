@@ -7,7 +7,7 @@ import difflib
 # Importujeme refaktorované funkcie z našich skriptov
 from main import run_processing
 from analyza import run_analysis
-from db import get_session, DocumentText, AnalysisResult, ClaimEvent
+from db import get_session, DocumentText, AnalysisResult, ClaimEvent, Prompt, PromptRun
 
 # --- Konfigurácia Streamlit aplikácie ---
 st.set_page_config(page_title="Analýza Poistných Udalostí", layout="wide")
@@ -72,7 +72,7 @@ def create_new_event_section():
     st.header("Vytvoriť novú poistnú udalosť")
     with st.expander("Kliknite sem pre vytvorenie novej udalosti"):
         with st.form("new_event_form", clear_on_submit=True):
-            new_event_id = st.text_input("Zadajte názov (ID) novej poistnej udalosti", placeholder="napr. PU_2024_015")
+            new_event_id = st.text_input("Zadajte názov (ID) novej poistnej udalosti", placeholder="napr. PU_2024_015", help="Názov sa automaticky vyčistí od medzier")
             sensitive_files = st.file_uploader("Nahrajte citlivé dokumenty", type=['pdf'], accept_multiple_files=True, key="sensitive")
             general_files = st.file_uploader("Nahrajte všeobecné dokumenty", type=['pdf'], accept_multiple_files=True, key="general")
             submitted = st.form_submit_button("Vytvoriť udalosť")
@@ -87,6 +87,12 @@ def handle_new_event_submission(event_id, sensitive_files, general_files):
         return
     if not sensitive_files and not general_files:
         st.error("Musíte nahrať aspoň jeden dokument.")
+        return
+
+    # Vyčistenie názvu udalosti od medzier
+    event_id = event_id.strip()
+    if not event_id:
+        st.error("Názov udalosti nemôže byť prázdny.")
         return
 
     try:
@@ -254,27 +260,165 @@ def run_full_process(event_id):
     except Exception as e:
         st.error(f"Nastala neočakávaná chyba: {e}")
 
+
+def manage_prompts_section():
+    """Zobrazí sekciu na správu promptov."""
+    st.header("Správa promptov")
+    
+    session = get_session()
+    if session is None:
+        st.error("Databáza nie je dostupná!")
+        return
+    
+    try:
+        # Zoznam existujúcich promptov
+        prompts = session.query(Prompt).all()
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.subheader("Existujúce prompty")
+            if prompts:
+                for prompt in prompts:
+                    with st.expander(f"{prompt.name} v{prompt.version} {'✅' if prompt.is_active else '❌'}"):
+                        st.write(f"**Model:** {prompt.model}")
+                        st.write(f"**Aktívny:** {'Áno' if prompt.is_active else 'Nie'}")
+                        st.write(f"**Vytvorený:** {prompt.created_at.strftime('%Y-%m-%d %H:%M')}")
+                        st.write(f"**Aktualizovaný:** {prompt.updated_at.strftime('%Y-%m-%d %H:%M')}")
+                        
+                        st.text_area("Obsah promptu", prompt.content, height=150, key=f"view_{prompt.id}")
+                        
+                        col_edit, col_activate, col_delete = st.columns(3)
+                        with col_edit:
+                            if st.button("Upraviť", key=f"edit_{prompt.id}"):
+                                st.session_state[f"editing_prompt_{prompt.id}"] = True
+                        
+                        with col_activate:
+                            if not prompt.is_active:
+                                if st.button("Aktivovať", key=f"activate_{prompt.id}"):
+                                    try:
+                                        # Deaktivujeme všetky prompty
+                                        session.query(Prompt).update({"is_active": False})
+                                        # Aktivujeme vybraný
+                                        prompt.is_active = True
+                                        session.commit()
+                                        st.success(f"Prompt '{prompt.name}' bol aktivovaný!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        session.rollback()
+                                        st.error(f"Chyba pri aktivácii: {e}")
+                        
+                        with col_delete:
+                            if not prompt.is_active:
+                                if st.button("Vymazať", key=f"delete_{prompt.id}"):
+                                    try:
+                                        session.delete(prompt)
+                                        session.commit()
+                                        st.success(f"Prompt '{prompt.name}' bol vymazaný!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        session.rollback()
+                                        st.error(f"Chyba pri mazaní: {e}")
+                        
+                        # Editácia promptu
+                        if st.session_state.get(f"editing_prompt_{prompt.id}", False):
+                            with st.form(f"edit_form_{prompt.id}"):
+                                new_name = st.text_input("Názov", value=prompt.name, key=f"edit_name_{prompt.id}")
+                                new_version = st.text_input("Verzia", value=prompt.version, key=f"edit_version_{prompt.id}")
+                                new_model = st.text_input("Model", value=prompt.model, key=f"edit_model_{prompt.id}")
+                                new_content = st.text_area("Obsah", value=prompt.content, height=200, key=f"edit_content_{prompt.id}")
+                                
+                                col_save, col_cancel = st.columns(2)
+                                with col_save:
+                                    if st.form_submit_button("Uložiť"):
+                                        try:
+                                            prompt.name = new_name
+                                            prompt.version = new_version
+                                            prompt.model = new_model
+                                            prompt.content = new_content
+                                            prompt.updated_at = datetime.datetime.utcnow()
+                                            session.commit()
+                                            st.success("Prompt bol úspešne upravený!")
+                                            st.session_state[f"editing_prompt_{prompt.id}"] = False
+                                            st.rerun()
+                                        except Exception as e:
+                                            session.rollback()
+                                            st.error(f"Chyba pri ukladaní: {e}")
+                                
+                                with col_cancel:
+                                    if st.form_submit_button("Zrušiť"):
+                                        st.session_state[f"editing_prompt_{prompt.id}"] = False
+                                        st.rerun()
+            else:
+                st.info("Zatiaľ nie sú vytvorené žiadne prompty.")
+        
+        with col2:
+            st.subheader("Vytvoriť nový prompt")
+            with st.form("new_prompt_form"):
+                name = st.text_input("Názov promptu", placeholder="napr. Poistné udalosti - základný")
+                version = st.text_input("Verzia", value="1.0")
+                model = st.text_input("Model", value="gemini-1.5-flash-002")
+                content = st.text_area("Obsah promptu", 
+                                     value="Zhrň kľúčové body z nasledujúcich poistných dokumentov. Zameraj sa na typ poistenia, poistné sumy, dátumy platnosti a mená zúčastnených strán. Vypíš výsledok v prehľadnej štruktúre.",
+                                     height=200)
+                is_active = st.checkbox("Aktivovať po vytvorení")
+                
+                if st.form_submit_button("Vytvoriť prompt"):
+                    if not name or not content:
+                        st.error("Názov a obsah promptu sú povinné!")
+                    else:
+                        try:
+                            # Ak sa má aktivovať nový prompt, deaktivujeme ostatné
+                            if is_active:
+                                session.query(Prompt).update({"is_active": False})
+                            
+                            new_prompt = Prompt(
+                                name=name,
+                                version=version,
+                                model=model,
+                                content=content,
+                                is_active=is_active
+                            )
+                            session.add(new_prompt)
+                            session.commit()
+                            st.success(f"Prompt '{name}' bol úspešne vytvorený!")
+                            st.rerun()
+                        except Exception as e:
+                            session.rollback()
+                            st.error(f"Chyba pri vytváraní promptu: {e}")
+    
+    finally:
+        session.close()
+
 # --- Hlavná logika aplikácie ---
 def main():
     """Hlavný beh Streamlit aplikácie."""
-    create_new_event_section()
-    st.divider()
+    # Sidebar pre navigáciu
+    st.sidebar.title("Navigácia")
+    page = st.sidebar.radio("Vyberte stránku:", ["Poistné udalosti", "Správa promptov"])
+    
+    if page == "Poistné udalosti":
+        create_new_event_section()
+        st.divider()
 
-    st.header("Dostupné poistné udalosti")
-    events = get_available_events(EVENTS_BASE_DIR)
+        st.header("Dostupné poistné udalosti")
+        events = get_available_events(EVENTS_BASE_DIR)
 
-    if not events:
-        st.warning(f"V priečinku `{EVENTS_BASE_DIR}` sa nenašli žiadne poistné udalosti. Vytvorte novú udalosť vyššie.")
-    else:
-        col1, col2 = st.columns([1, 3])
+        if not events:
+            st.warning(f"V priečinku `{EVENTS_BASE_DIR}` sa nenašli žiadne poistné udalosti. Vytvorte novú udalosť vyššie.")
+        else:
+            col1, col2 = st.columns([1, 3])
 
-        with col1:
-            st.subheader("Zoznam udalostí")
-            selected_event = st.radio("Vyberte udalosť:", events, label_visibility="collapsed")
+            with col1:
+                st.subheader("Zoznam udalostí")
+                selected_event = st.radio("Vyberte udalosť:", events, label_visibility="collapsed")
 
-        with col2:
-            if selected_event:
-                display_results(selected_event)
+            with col2:
+                if selected_event:
+                    display_results(selected_event)
+    
+    elif page == "Správa promptov":
+        manage_prompts_section()
 
 if __name__ == "__main__":
     main()

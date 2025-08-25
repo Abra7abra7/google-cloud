@@ -1,0 +1,5 @@
+[33mb798913[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m)[m docs: Add comprehensive deployment guide for Linux, Windows, and cloud platforms
+[33mc35e1d2[m docs: Complete setup instructions and environment variables guide
+[33ma28f148[m security: Remove API key from env.example
+[33m54ab10f[m security: Remove API key from config.ini and use environment variables
+[33m08de78e[m security: Remove sensitive files and improve .gitignore protection

@@ -28,18 +28,7 @@ Tento nástroj automatizuje spracovanie poistných dokumentov pomocou Google Clo
 - DLP inspect template
 
 ### Python balíčky
-Všetky závislosti sú v `requirements.txt`:
-```
-google-cloud-documentai
-google-cloud-dlp
-google-cloud-aiplatform
-streamlit
-fastapi
-uvicorn
-sqlalchemy
-pymysql
-configparser
-```
+Všetky závislosti sú v `requirements.txt` (Streamlit, FastAPI, Vertex AI, Document AI, DLP, SQLAlchemy,...).
 
 ## Inštalácia
 
@@ -66,96 +55,29 @@ pip install -r requirements.txt
 4. **Vytvorte JSON kľúč** a stiahnite `service-account-key.json`
 5. **Umiestnite súbor** do koreňového priečinka projektu
 
-#### 3.2 Environment Variables
-**Windows PowerShell:**
-```powershell
-$env:GOOGLE_APPLICATION_CREDENTIALS="service-account-key.json"
-$env:GOOGLE_CLOUD_PROJECT="claims-ai-prototype-1"
-$env:GEMINI_API_KEY="your-actual-gemini-api-key-here"
-```
-
-**Windows CMD:**
-```cmd
-set GOOGLE_APPLICATION_CREDENTIALS=service-account-key.json
-set GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
-set GEMINI_API_KEY=your-actual-gemini-api-key-here
-```
-
-**Linux/macOS:**
-```bash
-export GOOGLE_APPLICATION_CREDENTIALS="service-account-key.json"
-export GOOGLE_CLOUD_PROJECT="claims-ai-prototype-1"
-export GEMINI_API_KEY="your-actual-gemini-api-key-here"
-```
-
-#### 3.3 Gemini API Kľúč
-1. **Google AI Studio** → https://makersuite.google.com/app/apikey
-2. **Vytvorte nový API kľúč**
-3. **Nastavte environment variable** `GEMINI_API_KEY`
-4. **NIKDY NEUPLOADOVAŤ** API kľúč na GitHub!
-
-#### 3.4 Použitie .env.local súboru (odporúčané)
-1. **Skopírujte** `env.example` ako `.env.local`
-2. **Upravte** `.env.local` s vašimi skutočnými hodnotami:
+#### 3.2 Použitie `.env.local` (jediný zdroj pravdy)
+1. Skopírujte `env.example` ako `.env.local`
+2. Vyplňte hodnoty (Vertex AI v EU, alias modelu):
    ```bash
-   # .env.local
    GOOGLE_APPLICATION_CREDENTIALS=service-account-key.json
    GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
-   GEMINI_API_KEY=your-actual-gemini-api-key-here
+   USE_VERTEX_AI=1
+   VERTEX_AI_LOCATION=europe-west1
+   GEMINI_MODEL=gemini-2.0-flash   # alebo gemini-1.5-pro / gemini-1.5-flash
+   ANALYSIS_PROMPT=Zhrň kľúčové body z nasledujúcich poistných dokumentov...
    DATABASE_URL=sqlite:///claims_ai.db
    ```
-3. **Aplikácia automaticky načíta** `.env.local` súbor
-4. **NIKDY NEUPLOADOVAŤ** `.env.local` na GitHub!
+3. `.env.local` sa načíta automaticky pri štarte aplikácií
+4. `.env.local` a JSON kľúč NIKDY neuploadovať na GitHub
 
-### 4. Konfigurácia aplikácie
+### 4. Konfigurácia aplikácie (skrátene)
+Všetky nastavenia sú v `.env.local`. Žiadny `config.ini` sa už nepoužíva.
 
-#### 4.1 config.ini (GCP nastavenia)
-Upravte `config.ini` s vašimi GCP údajmi:
-
-```ini
-[gcp]
-project_id = claims-ai-prototype-1
-
-[document_ai]
-location = eu
-processor_id = 1e3f139679670c26
-mime_type = application/pdf
-
-[dlp]
-location = europe-west3
-template_id = projects/claims-ai-prototype-1/locations/europe-west3/deidentifyTemplates/de-identify-sensitive-data
-inspect_template_id = projects/claims-ai-prototype-1/locations/europe-west3/inspectTemplates/find-sensitive-data
-
-[gemini]
-# api_key = YOUR_GEMINI_API_KEY  # NIKDY NEUPLOADOVAŤ!
-model = gemini-1.5-flash-latest
-analysis_prompt = Zhrň kľúčové body z nasledujúcich poistných dokumentov...
-
-[database]
-url = sqlite:///claims_ai.db
-# Pre MySQL: mysql+pymysql://user:password@localhost/dbname
-```
-
-#### 4.2 Dôležité poznámky
-- **project_id**: Použite váš GCP projekt ID
-- **processor_id**: Document AI processor ID z GCP Console
-- **template_id**: DLP de-identify template ID
-- **inspect_template_id**: DLP inspect template ID
-- **api_key**: NIKDY NEUPLOADOVAŤ - použite environment variable
-
-#### 4.3 Environment Variables - Prehľad
+#### 4.1 Environment Variables - Prehľad
 ```bash
-# Povinné pre funkčnosť aplikácie:
-GOOGLE_APPLICATION_CREDENTIALS=service-account-key.json
-GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
-GEMINI_API_KEY=your-actual-gemini-api-key-here
-
-# Voliteľné:
-DATABASE_URL=sqlite:///claims_ai.db
-STREAMLIT_SERVER_PORT=8501
-STREAMLIT_SERVER_ADDRESS=0.0.0.0
-API_HOST=0.0.0.0
-API_PORT=8000
+GOOGLE_APPLICATION_CREDENTIALS, GOOGLE_CLOUD_PROJECT, USE_VERTEX_AI, VERTEX_AI_LOCATION,
+GEMINI_MODEL (aliasy: gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash),
+ANALYSIS_PROMPT, DATABASE_URL, STREAMLIT_SERVER_PORT, STREAMLIT_SERVER_ADDRESS, API_HOST, API_PORT
 ```
 
 #### 4.4 Bezpečnostné odporúčania
@@ -171,13 +93,8 @@ API_PORT=8000
 
 #### 5.1 Spustenie aplikácie
 ```bash
-# Nastavte environment variables
-$env:GOOGLE_APPLICATION_CREDENTIALS="service-account-key.json"
-$env:GOOGLE_CLOUD_PROJECT="claims-ai-prototype-1"
-$env:GEMINI_API_KEY="your-actual-gemini-api-key-here"
-
-# Spustite Streamlit
-streamlit run app_streamlit.py
+# Streamlit (port 8502)
+streamlit run app_streamlit.py --server.port 8502 --server.address 0.0.0.0
 ```
 
 #### 5.2 Prístup k aplikácii
@@ -193,12 +110,6 @@ streamlit run app_streamlit.py
 
 #### 6.1 Spustenie API
 ```bash
-# Nastavte environment variables
-$env:GOOGLE_APPLICATION_CREDENTIALS="service-account-key.json"
-$env:GOOGLE_CLOUD_PROJECT="claims-ai-prototype-1"
-$env:GEMINI_API_KEY="your-actual-gemini-api-key-here"
-
-# Spustite FastAPI
 uvicorn api:app --host 0.0.0.0 --port 8000 --reload
 ```
 
@@ -277,7 +188,7 @@ google-cloud/
 ├── main.py                   # OCR a anonymizácia
 ├── analyza.py                # AI analýza
 ├── db.py                     # Databázové modely
-├── config.ini                # Konfigurácia
+├── KONFIGURACIA.md           # Zhrnutie konfigurácie (.env.local je zdroj pravdy)
 ├── requirements.txt          # Python závislosti
 ├── claims-ai.db             # SQLite databáza
 ├── poistne_udalosti/        # Vstupné PDF dokumenty
