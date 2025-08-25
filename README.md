@@ -386,6 +386,350 @@ export DATABASE_URL="mysql+pymysql://user:password@host/dbname"
 - Metriky databázy
 - GCP monitoring
 
+## Nasadenie na rôzne servery
+
+### Podporované operačné systémy
+- **Linux**: Ubuntu 18.04+, CentOS 7+, Debian 9+, RHEL 7+, Amazon Linux 2
+- **Windows**: Windows Server 2016+, Windows 10/11, Windows Server Core
+- **macOS**: macOS 10.15+
+- **Cloud**: AWS EC2, Google Cloud, Azure, DigitalOcean, VPS
+
+### Požiadavky na server
+- **Minimálne**: 2 vCPU, 4GB RAM, 20GB disk
+- **Odporúčané**: 4-8 vCPU, 8-16GB RAM, 50-100GB SSD
+- **OS**: Linux (odporúčané), Windows, macOS
+
+### Nasadenie na Linux server
+
+#### Ubuntu/Debian
+```bash
+# 1. Aktualizácia systému
+sudo apt update && sudo apt upgrade -y
+
+# 2. Inštalácia Python a Git
+sudo apt install -y python3 python3-pip python3-venv git curl
+
+# 3. Vytvorenie Python virtual environment
+python3 -m venv claims-ai-env
+source claims-ai-env/bin/activate
+
+# 4. Klonovanie repozitára
+git clone https://github.com/Abra7abra7/google-cloud.git
+cd google-cloud
+
+# 5. Inštalácia závislostí
+pip install -r requirements.txt
+
+# 6. Nastavenie environment variables
+export GOOGLE_APPLICATION_CREDENTIALS="service-account-key.json"
+export GOOGLE_CLOUD_PROJECT="claims-ai-prototype-1"
+export GEMINI_API_KEY="your-actual-gemini-api-key-here"
+
+# 7. Spustenie aplikácie
+streamlit run app_streamlit.py --server.port 8501 --server.address 0.0.0.0 &
+uvicorn api:app --host 0.0.0.0 --port 8000
+```
+
+#### CentOS/RHEL
+```bash
+# 1. Aktualizácia systému
+sudo yum update -y
+
+# 2. Inštalácia Python a Git
+sudo yum install -y python3 python3-pip git curl
+
+# 3. Vytvorenie Python virtual environment
+python3 -m venv claims-ai-env
+source claims-ai-env/bin/activate
+
+# 4. Pokračovanie rovnako ako Ubuntu
+```
+
+#### Systemd služby (Linux)
+```bash
+# 1. Vytvorenie systemd služby pre Streamlit
+sudo tee /etc/systemd/system/claims-ai-streamlit.service << EOF
+[Unit]
+Description=Claims AI Streamlit Application
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/google-cloud
+Environment=GOOGLE_APPLICATION_CREDENTIALS=/home/ubuntu/google-cloud/service-account-key.json
+Environment=GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
+Environment=GEMINI_API_KEY=your-actual-gemini-api-key-here
+ExecStart=/home/ubuntu/claims-ai-env/bin/streamlit run app_streamlit.py --server.port 8501 --server.address 0.0.0.0
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 2. Vytvorenie systemd služby pre FastAPI
+sudo tee /etc/systemd/system/claims-ai-api.service << EOF
+[Unit]
+Description=Claims AI FastAPI Application
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/google-cloud
+Environment=GOOGLE_APPLICATION_CREDENTIALS=/home/ubuntu/google-cloud/service-account-key.json
+Environment=GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
+Environment=GEMINI_API_KEY=your-actual-gemini-api-key-here
+ExecStart=/home/ubuntu/claims-ai-env/bin/uvicorn api:app --host 0.0.0.0 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 3. Aktivácia a spustenie služieb
+sudo systemctl daemon-reload
+sudo systemctl enable claims-ai-streamlit
+sudo systemctl enable claims-ai-api
+sudo systemctl start claims-ai-streamlit
+sudo systemctl start claims-ai-api
+
+# 4. Kontrola stavu
+sudo systemctl status claims-ai-streamlit
+sudo systemctl status claims-ai-api
+```
+
+### Nasadenie na Windows server
+
+#### Windows Server 2016/2019/2022
+```powershell
+# 1. Inštalácia Python (stiahnite z python.org)
+# 2. Inštalácia Git (stiahnite z git-scm.com)
+
+# 3. Otvorte PowerShell ako Administrator
+# 4. Vytvorenie Python virtual environment
+python -m venv claims-ai-env
+.\claims-ai-env\Scripts\Activate.ps1
+
+# 5. Klonovanie repozitára
+git clone https://github.com/Abra7abra7/google-cloud.git
+cd google-cloud
+
+# 6. Inštalácia závislostí
+pip install -r requirements.txt
+
+# 7. Nastavenie environment variables
+$env:GOOGLE_APPLICATION_CREDENTIALS="service-account-key.json"
+$env:GOOGLE_CLOUD_PROJECT="claims-ai-prototype-1"
+$env:GEMINI_API_KEY="your-actual-gemini-api-key-here"
+
+# 8. Spustenie aplikácie
+Start-Process -FilePath "streamlit" -ArgumentList "run app_streamlit.py --server.port 8501 --server.address 0.0.0.0"
+Start-Process -FilePath "uvicorn" -ArgumentList "api:app --host 0.0.0.0 --port 8000"
+```
+
+#### Windows služby (NSSM)
+```powershell
+# 1. Stiahnite NSSM: https://nssm.cc/download
+# 2. Vytvorenie Windows služby pre Streamlit
+nssm install ClaimsAIStreamlit "C:\Users\Administrator\claims-ai-env\Scripts\streamlit.exe" "run app_streamlit.py --server.port 8501 --server.address 0.0.0.0"
+nssm set ClaimsAIStreamlit AppDirectory "C:\Users\Administrator\google-cloud"
+nssm set ClaimsAIStreamlit AppEnvironmentExtra GOOGLE_APPLICATION_CREDENTIALS=service-account-key.json
+nssm set ClaimsAIStreamlit AppEnvironmentExtra GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
+nssm set ClaimsAIStreamlit AppEnvironmentExtra GEMINI_API_KEY=your-actual-gemini-api-key-here
+
+# 3. Vytvorenie Windows služby pre FastAPI
+nssm install ClaimsAIAPI "C:\Users\Administrator\claims-ai-env\Scripts\uvicorn.exe" "api:app --host 0.0.0.0 --port 8000"
+nssm set ClaimsAIAPI AppDirectory "C:\Users\Administrator\google-cloud"
+nssm set ClaimsAIAPI AppEnvironmentExtra GOOGLE_APPLICATION_CREDENTIALS=service-account-key.json
+nssm set ClaimsAIAPI AppEnvironmentExtra GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
+nssm set ClaimsAIAPI AppEnvironmentExtra GEMINI_API_KEY=your-actual-gemini-api-key-here
+
+# 4. Spustenie služieb
+Start-Service ClaimsAIStreamlit
+Start-Service ClaimsAIAPI
+```
+
+### Nasadenie cez Docker (univerzálne pre všetky OS)
+
+#### Docker Compose
+```bash
+# 1. Inštalácia Docker a Docker Compose
+# Linux: curl -fsSL https://get.docker.com | sh
+# Windows: Docker Desktop
+# macOS: Docker Desktop
+
+# 2. Klonovanie repozitára
+git clone https://github.com/Abra7abra7/google-cloud.git
+cd google-cloud
+
+# 3. Vytvorenie .env súboru
+cp env.example .env
+# Upravte .env s vašimi hodnotami
+
+# 4. Spustenie cez Docker Compose
+docker-compose up -d
+
+# 5. Kontrola stavu
+docker-compose ps
+docker-compose logs -f claims_ai
+```
+
+### Nasadenie na cloud platformy
+
+#### AWS EC2
+```bash
+# 1. Spustenie Ubuntu 22.04 LTS instance
+# 2. Pripojenie cez SSH
+ssh -i your-key.pem ubuntu@your-ec2-ip
+
+# 3. Inštalácia Docker
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker ubuntu
+newgrp docker
+
+# 4. Klonovanie a spustenie
+git clone https://github.com/Abra7abra7/google-cloud.git
+cd google-cloud
+docker-compose up -d
+
+# 5. Konfigurácia security groups
+# - Port 8501 (Streamlit)
+# - Port 8000 (FastAPI)
+# - Port 22 (SSH)
+```
+
+#### Google Cloud Compute Engine
+```bash
+# 1. Spustenie Ubuntu 22.04 LTS instance
+# 2. Pripojenie cez Cloud Shell alebo SSH
+gcloud compute ssh your-instance-name --zone=your-zone
+
+# 3. Inštalácia Docker
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+newgrp docker
+
+# 4. Klonovanie a spustenie
+git clone https://github.com/Abra7abra7/google-cloud.git
+cd google-cloud
+docker-compose up -d
+
+# 5. Konfigurácia firewall rules
+gcloud compute firewall-rules create claims-ai-streamlit --allow tcp:8501
+gcloud compute firewall-rules create claims-ai-api --allow tcp:8000
+```
+
+#### Azure Virtual Machines
+```bash
+# 1. Spustenie Ubuntu 22.04 LTS VM
+# 2. Pripojenie cez SSH
+ssh azureuser@your-vm-ip
+
+# 3. Inštalácia Docker
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker azureuser
+newgrp docker
+
+# 4. Klonovanie a spustenie
+git clone https://github.com/Abra7abra7/google-cloud.git
+cd google-cloud
+docker-compose up -d
+
+# 5. Konfigurácia Network Security Groups
+# - Port 8501 (Streamlit)
+# - Port 8000 (FastAPI)
+# - Port 22 (SSH)
+```
+
+#### DigitalOcean Droplet
+```bash
+# 1. Vytvorenie Ubuntu 22.04 LTS Droplet
+# 2. Pripojenie cez SSH
+ssh root@your-droplet-ip
+
+# 3. Inštalácia Docker
+curl -fsSL https://get.docker.com | sh
+
+# 4. Klonovanie a spustenie
+git clone https://github.com/Abra7abra7/google-cloud.git
+cd google-cloud
+docker-compose up -d
+
+# 5. Konfigurácia firewall
+ufw allow 8501
+ufw allow 8000
+ufw allow 22
+ufw enable
+```
+
+### Reverse Proxy a SSL (produkčné nasadenie)
+
+#### Nginx konfigurácia
+```bash
+# 1. Inštalácia Nginx
+sudo apt install -y nginx
+
+# 2. Vytvorenie Nginx konfigurácie
+sudo tee /etc/nginx/sites-available/claims-ai << EOF
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    # Redirect HTTP to HTTPS
+    return 301 https://\$server_name\$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name your-domain.com;
+
+    # SSL certifikáty
+    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+
+    # Streamlit aplikácia
+    location / {
+        proxy_pass http://localhost:8501;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    # FastAPI
+    location /api/ {
+        proxy_pass http://localhost:8000/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF
+
+# 3. Aktivácia konfigurácie
+sudo ln -s /etc/nginx/sites-available/claims-ai /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+#### Let's Encrypt SSL certifikát
+```bash
+# 1. Inštalácia Certbot
+sudo apt install -y certbot python3-certbot-nginx
+
+# 2. Získanie SSL certifikátu
+sudo certbot --nginx -d your-domain.com
+
+# 3. Automatické obnovovanie
+sudo crontab -e
+# Pridajte: 0 12 * * * /usr/bin/certbot renew --quiet
+```
+
 ## Docker Nasadenie
 
 ### Rýchle spustenie s Docker Compose
