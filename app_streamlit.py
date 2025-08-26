@@ -1,4 +1,5 @@
 import os
+import html
 from dotenv import load_dotenv
 import streamlit as st
 import datetime
@@ -198,6 +199,31 @@ def display_detailed_outputs(event_id):
     """Zobrazí detailné porovnanie OCR vs. anonymizovaného textu."""
     st.subheader("Kontrola medzikrokov spracovania")
 
+    # Pomocná funkcia na zvýraznenie rozdielov medzi OCR a anonymizovaným textom
+    def highlight_differences(original_text: str, anonymized_text: str) -> tuple[str, str, int]:
+        """Vytvorí HTML s vyznačením rozdielov. Vracia (html_raw, html_anon, diff_count)."""
+        sm = difflib.SequenceMatcher(a=original_text, b=anonymized_text)
+        parts_raw: list[str] = []
+        parts_anon: list[str] = []
+        diff_count = 0
+        for tag, i1, i2, j1, j2 in sm.get_opcodes():
+            a_seg = original_text[i1:i2]
+            b_seg = anonymized_text[j1:j2]
+            if tag == 'equal':
+                parts_raw.append(a_seg)
+                parts_anon.append(b_seg)
+            elif tag in ('replace', 'delete', 'insert'):
+                # zvýrazníme rozdiely; počítame ako diff položky
+                diff_count += 1
+                if a_seg:
+                    parts_raw.append(f"<mark style='background:#ffe8e8'>{html.escape(a_seg)}</mark>")
+                if b_seg:
+                    parts_anon.append(f"<mark style='background:#e8ffe8'>{html.escape(b_seg)}</mark>")
+        # HTML výstup
+        html_raw = "<div style='white-space:pre-wrap; font-family:monospace'>" + ''.join(parts_raw) + "</div>"
+        html_anon = "<div style='white-space:pre-wrap; font-family:monospace'>" + ''.join(parts_anon) + "</div>"
+        return html_raw, html_anon, diff_count
+
     # Citlivé dokumenty
     st.markdown("#### Citlivé dokumenty")
     raw_ocr_event_dir = os.path.join(RAW_OCR_DIR, event_id)
@@ -210,20 +236,17 @@ def display_detailed_outputs(event_id):
             doc_name = os.path.basename(doc_path)
             with st.expander(f"Dokument: {doc_name}"):
                 col_raw, col_anon = st.columns(2)
-                raw_content = read_file_content(doc_path)
-                anonymized_content = read_file_content(os.path.join(anonymized_event_dir, doc_name))
-                with col_raw: st.text_area("Pôvodný text (OCR)", raw_content, height=300, key=f"raw_{doc_name}")
-                with col_anon: st.text_area("Anonymizovaný text", anonymized_content, height=300, key=f"anon_{doc_name}")
-
-                diff = difflib.unified_diff(
-                    (raw_content or "").splitlines(),
-                    (anonymized_content or "").splitlines(),
-                    fromfile='OCR', tofile='ANON', lineterm=''
-                )
-                diff_text = '\n'.join(diff)
-                if diff_text:
-                    st.markdown("**Zvýraznené rozdiely (diff):**")
-                    st.code(diff_text, language='diff')
+                raw_content = read_file_content(doc_path) or ""
+                anonymized_content = read_file_content(os.path.join(anonymized_event_dir, doc_name)) or ""
+                # zvýraznenie rozdielov (inline highlighting)
+                html_raw, html_anon, diff_count = highlight_differences(raw_content, anonymized_content)
+                with col_raw:
+                    st.markdown("**Pôvodný text (OCR)**", help="Text extrahovaný Document AI")
+                    st.markdown(html_raw, unsafe_allow_html=True)
+                with col_anon:
+                    st.markdown("**Anonymizovaný text**", help="Text po Cloud DLP de-identifikácii")
+                    st.markdown(html_anon, unsafe_allow_html=True)
+                st.caption(f"Počet odlišných úsekov: {diff_count}")
 
     # Všeobecné dokumenty
     st.markdown("#### Všeobecné dokumenty")
