@@ -34,7 +34,7 @@ else:
     # Google AI Studio (API kľúč)
     import google.generativeai as genai
     if not GEMINI_API_KEY:
-        raise ValueError("GEMINI_API_KEY musí byť nastavený v environment variables alebo config.ini")
+        raise ValueError("GEMINI_API_KEY musí byť nastavený v `.env.local` alebo v prostredí")
     genai.configure(api_key=GEMINI_API_KEY)
 
 # --- Pomocné funkcie ---
@@ -95,7 +95,7 @@ def run_analysis(event_id: str, anonymized_dir: str, general_dir: str, analysis_
     # Získanie aktívneho promptu z databázy
     active_prompt = get_active_prompt()
     if not active_prompt:
-        status_callback("Varovanie: Používam predvolený prompt z config.ini")
+        status_callback("Varovanie: Používam predvolený prompt z .env.local (ANALYSIS_PROMPT)")
         prompt_content = ANALYSIS_PROMPT
         model_name = GEMINI_MODEL
     else:

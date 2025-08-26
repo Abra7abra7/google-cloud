@@ -44,8 +44,8 @@ DATABASE_URL=sqlite:///claims_ai.db
 ## Spustenie služieb:
 
 ```bash
-# Streamlit (8502)
-$env:USE_VERTEX_AI="1"; $env:VERTEX_AI_LOCATION="europe-west1"; $env:GOOGLE_CLOUD_PROJECT="claims-ai-prototype-1"; $env:GOOGLE_APPLICATION_CREDENTIALS="claims-ai-prototype-1-abf1c40fc2d.json"; streamlit run app_streamlit.py --server.port 8502 --server.address 0.0.0.0
+# Streamlit (8501)
+$env:USE_VERTEX_AI="1"; $env:VERTEX_AI_LOCATION="europe-west1"; $env:GOOGLE_CLOUD_PROJECT="claims-ai-prototype-1"; $env:GOOGLE_APPLICATION_CREDENTIALS="claims-ai-prototype-1-abf1c40fc2d.json"; streamlit run app_streamlit.py --server.port 8501 --server.address 0.0.0.0
 
 # FastAPI (8000)
 $env:USE_VERTEX_AI="1"; $env:VERTEX_AI_LOCATION="europe-west1"; $env:GOOGLE_CLOUD_PROJECT="claims-ai-prototype-1"; $env:GOOGLE_APPLICATION_CREDENTIALS="claims-ai-prototype-1-abf1c40fc2d.json"; uvicorn api:app --host 0.0.0.0 --port 8000 --reload

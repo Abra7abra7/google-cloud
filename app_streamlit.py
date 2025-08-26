@@ -1,8 +1,13 @@
 import os
+from dotenv import load_dotenv
 import streamlit as st
 import datetime
 import glob
 import difflib
+
+# Načítanie .env.local ako jediného zdroja pravdy pre konfiguráciu
+load_dotenv('.env.local', override=True)
+load_dotenv(override=False)
 
 # Importujeme refaktorované funkcie z našich skriptov
 from main import run_processing

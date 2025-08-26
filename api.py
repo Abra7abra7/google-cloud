@@ -1,10 +1,15 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 import os
+from dotenv import load_dotenv
 
 from main import run_processing, ocr_document, anonymize_text, PROJECT_ID, DLP_TEMPLATE_ID
 from analyza import run_analysis, analyze_single_document, analyze_text
 from db import get_session, Prompt, PromptRun
+
+# Načítanie .env.local ako jediného zdroja pravdy
+load_dotenv('.env.local', override=True)
+load_dotenv(override=False)
 
 EVENTS_BASE_DIR = "poistne_udalosti"
 ANONYMIZED_DIR = "anonymized_output"

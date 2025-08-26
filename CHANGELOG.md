@@ -28,6 +28,9 @@ a tento projekt sa riadi [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Refaktorovanie OCR a anonymizácie do samostatných funkcií
 - Zlepšenie error handling
 - Optimalizácia Google Cloud SDK konfigurácie
+- Zjednotený jediný zdroj pravdy pre konfiguráciu cez `.env.local` (odstránené zmienky o `config.ini`)
+- Zjednotený port Streamlit na 8501 naprieč dokumentáciou
+- Doplnené env premenné pre Document AI a DLP v README
 
 ### Opravené
 - Google Cloud projekt ID cache problém

@@ -1,0 +1,5 @@
+[33m5554ec6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mchore/doc-sync-single-source[m[33m, [m[1;31morigin/feature/env-only-config[m[33m, [m[1;31morigin/chore/doc-sync-single-source[m[33m, [m[1;32mfeature/env-only-config[m[33m)[m docs: align README, DEPLOYMENT, CHECKLIST, KONFIGURACIA with env-only + ports
+[33mb0b77ae[m chore(config): move main.py to env-only; update env.example; docs aligned
+[33mdcd09a8[m[33m ([m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmaster[m[33m)[m feat(config): unify to .env.local; Vertex AI aliases; prompts CRUD+UI; docs updated
+[33mb798913[m docs: Add comprehensive deployment guide for Linux, Windows, and cloud platforms
+[33mc35e1d2[m docs: Complete setup instructions and environment variables guide
