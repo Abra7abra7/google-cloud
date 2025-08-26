@@ -12,6 +12,7 @@ load_dotenv(override=False)
 
 # Importujeme refaktorované funkcie z našich skriptov
 from main import run_processing
+from main import inspect_text_for_pii
 from analyza import run_analysis
 from db import get_session, DocumentText, AnalysisResult, ClaimEvent, Prompt, PromptRun
 
@@ -238,11 +239,31 @@ def display_detailed_outputs(event_id):
                 col_raw, col_anon = st.columns(2)
                 raw_content = read_file_content(doc_path) or ""
                 anonymized_content = read_file_content(os.path.join(anonymized_event_dir, doc_name)) or ""
+                # DLP Inspect – zvýraznenie PII v raw OCR texte, ak je dostupný inspect template
+                pii_findings = []
+                try:
+                    from main import PROJECT_ID as _PID
+                    pii_findings = inspect_text_for_pii(_PID, raw_content)
+                except Exception:
+                    pii_findings = []
                 # zvýraznenie rozdielov (inline highlighting)
                 html_raw, html_anon, diff_count = highlight_differences(raw_content, anonymized_content)
                 with col_raw:
                     st.markdown("**Pôvodný text (OCR)**", help="Text extrahovaný Document AI")
-                    st.markdown(html_raw, unsafe_allow_html=True)
+                    # Ak máme PII nálezy, zvýrazníme ich v raw texte (žlté pozadie)
+                    if pii_findings:
+                        segments = []
+                        last = 0
+                        for f in sorted(pii_findings, key=lambda x: x["start"]):
+                            s, e = f["start"], f["end"]
+                            segments.append(html.escape(raw_content[last:s]))
+                            segments.append(f"<mark style='background:#fff3cd' title='{f['info_type']}'>" + html.escape(raw_content[s:e]) + "</mark>")
+                            last = e
+                        segments.append(html.escape(raw_content[last:]))
+                        raw_html_with_pii = "<div style='white-space:pre-wrap; font-family:monospace'>" + ''.join(segments) + "</div>"
+                        st.markdown(raw_html_with_pii, unsafe_allow_html=True)
+                    else:
+                        st.markdown(html_raw, unsafe_allow_html=True)
                 with col_anon:
                     st.markdown("**Anonymizovaný text**", help="Text po Cloud DLP de-identifikácii")
                     st.markdown(html_anon, unsafe_allow_html=True)

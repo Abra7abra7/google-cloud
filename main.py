@@ -78,6 +78,42 @@ def anonymize_text(
     response = dlp_client.deidentify_content(request=request)
     return response.item.value
 
+def inspect_text_for_pii(project_id: str, text_to_inspect: str) -> list[dict]:
+    """Vykoná DLP Inspect nad textom a vráti zoznam nálezov s pozíciami.
+    Výstup: [{"info_type": str, "start": int, "end": int, "quote": str}]
+    Pozn.: Vyžaduje nastavený DLP_INSPECT_TEMPLATE_ID a DLP_LOCATION.
+    """
+    if not DLP_INSPECT_TEMPLATE_ID:
+        return []
+    # Explicitne nastav projekt
+    os.environ['GOOGLE_CLOUD_PROJECT'] = project_id
+    dlp_client = dlp_v2.DlpServiceClient()
+    parent = f"projects/{project_id}/locations/{DLP_LOCATION}"
+
+    inspect_config = None  # použijeme inspect template
+    item = {"value": text_to_inspect}
+
+    request = dlp_v2.InspectContentRequest(
+        parent=parent,
+        item=item,
+        inspect_template_name=DLP_INSPECT_TEMPLATE_ID,
+        inspect_config=inspect_config,
+    )
+
+    response = dlp_client.inspect_content(request=request)
+    findings: list[dict] = []
+    for finding in getattr(response.result, 'findings', []) or []:
+        info_type = finding.info_type.name if finding.info_type else "PII"
+        quote = getattr(finding, 'quote', '')
+        offset = finding.location.content_locations[0].range
+        findings.append({
+            "info_type": info_type,
+            "start": int(offset.start),
+            "end": int(offset.end),
+            "quote": quote or text_to_inspect[int(offset.start):int(offset.end)]
+        })
+    return findings
+
 # --- Logika spracovania súborov ---
 def ocr_and_anonymize(file_path: str, raw_ocr_dir: str):
     """Orchestruje OCR, uloženie surového textu a následnú anonymizáciu."""
