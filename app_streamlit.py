@@ -17,6 +17,23 @@ from db import get_session, DocumentText, AnalysisResult, ClaimEvent, Prompt, Pr
 # --- Konfigurácia Streamlit aplikácie ---
 st.set_page_config(page_title="Analýza Poistných Udalostí", layout="wide")
 
+# Jemné vizuálne vylepšenia
+st.markdown(
+    """
+    <style>
+      /* Zmenšenie vertikálnych medzier */
+      .block-container { padding-top: 1.2rem; padding-bottom: 1.2rem; }
+      /* Zvýraznenie metrík */
+      div[data-testid="stMetricValue"] { font-weight: 700; }
+      /* Krajšie expander hlavičky */
+      details > summary { font-size: 0.98rem; }
+      /* Odstupy medzi sekciami */
+      hr { margin: 0.8rem 0 1rem 0; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.title("Nástroj na analýzu poistných udalostí")
 st.markdown("Táto aplikácia automatizuje spracovanie a analýzu dokumentov z poistných udalostí.")
 
@@ -34,6 +51,22 @@ def get_available_events(base_dir: str):
         st.error(f"Hlavný priečinok pre udalosti '{base_dir}' nebol nájdený!")
         return []
     return sorted([d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))])
+
+def get_global_metrics():
+    """Vráti počty udalostí, dokumentov a analýz pre prehľadové metriky."""
+    try:
+        session = get_session()
+        if session is None:
+            return 0, 0, 0
+        try:
+            total_events = session.query(ClaimEvent).count()
+            total_docs = session.query(DocumentText).count()
+            total_analysis = session.query(AnalysisResult).count()
+            return total_events, total_docs, total_analysis
+        finally:
+            session.close()
+    except Exception:
+        return 0, 0, 0
 
 def read_file_content(file_path: str) -> str:
     """Bezpečne načíta obsah textového súboru."""
@@ -84,6 +117,8 @@ def create_new_event_section():
 
             if submitted:
                 handle_new_event_submission(new_event_id, sensitive_files, general_files)
+
+    st.markdown("---")
 
 def handle_new_event_submission(event_id, sensitive_files, general_files):
     """Spracuje logiku pre vytvorenie novej udalosti po odoslaní formulára."""
@@ -163,7 +198,7 @@ def display_detailed_outputs(event_id):
     anonymized_event_dir = os.path.join(ANONYMIZED_DIR, event_id)
     sensitive_docs = glob.glob(os.path.join(raw_ocr_event_dir, '*.txt'))
     if not sensitive_docs:
-        st.info("Nenájdené žiadne spracované citlivé dokumenty.")
+        st.info("Nenájdené žiadne spracované citlivé dokumenty. Nahrajte PDF do priečinka citlivé dokumenty a spustite spracovanie.")
     else:
         for doc_path in sensitive_docs:
             doc_name = os.path.basename(doc_path)
@@ -189,7 +224,7 @@ def display_detailed_outputs(event_id):
     general_event_dir = os.path.join(GENERAL_DIR, event_id)
     general_docs = glob.glob(os.path.join(general_event_dir, '*.txt'))
     if not general_docs:
-        st.info("Nenájdené žiadne spracované všeobecné dokumenty.")
+        st.info("Nenájdené žiadne spracované všeobecné dokumenty. Nahrajte PDF do priečinka všeobecné dokumenty a spustite spracovanie.")
     else:
         for doc_path in general_docs:
             doc_name = os.path.basename(doc_path)
@@ -207,9 +242,10 @@ def display_db_status(event_id: str):
         total_events = session.query(ClaimEvent).count()
         total_docs = session.query(DocumentText).count()
         total_analysis = session.query(AnalysisResult).count()
-        st.markdown(f"- Počet udalostí v DB: **{total_events}**")
-        st.markdown(f"- Počet dokumentov v DB: **{total_docs}**")
-        st.markdown(f"- Počet analýz v DB: **{total_analysis}**")
+        col_a, col_b, col_c = st.columns(3)
+        col_a.metric("Udalosti", total_events)
+        col_b.metric("Dokumenty", total_docs)
+        col_c.metric("Analýzy", total_analysis)
 
         st.markdown("\nZáznamy pre vybranú udalosť:")
         docs = session.query(DocumentText).filter_by(event_id=event_id).all()
