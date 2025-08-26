@@ -295,6 +295,9 @@ export DATABASE_URL="mysql+pymysql://user:password@host/dbname"
 - Firewall pravidlá
 
 ### 4. Monitoring
+- **DLP anonymizácia**: Overte správnosť šablón a prahov
+- **Document AI**: Kontrola processor stavu a kvót
+- **Vertex AI**: Monitoring token usage a rate limits
 - Logy aplikácie
 - Metriky databázy
 - GCP monitoring

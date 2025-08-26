@@ -61,6 +61,23 @@ cp env.example .env.local
 nano .env.local
 ```
 
+#### DLP šablóny - povinné nastavenia
+1. **Inspect Template** (europe-west3):
+   - Minimum likelihood: "Likely" (nie "Very likely")
+   - InfoTypes: PERSON_NAME, FIRST_NAME, LAST_NAME, DATE_OF_BIRTH, AGE, PHONE_NUMBER, IBAN_CODE, FINANCIAL_ID, LOCATION, MEDICAL_DATA, MEDICAL_ID, MEDICAL_RECORD_NUMBER, GENDER
+   - Include quote: Off
+
+2. **De-identify Template** (europe-west3):
+   - Transformácie: ReplaceWithInfoType alebo Redact pre všetky InfoTypes
+   - Lokácia: europe-west3 (musí zodpovedať DLP_LOCATION)
+
+3. **Overte v .env.local**:
+   ```bash
+   DLP_LOCATION=europe-west3
+   DLP_DEIDENTIFY_TEMPLATE_ID=projects/<project>/locations/europe-west3/deidentifyTemplates/<id>
+   DLP_INSPECT_TEMPLATE_ID=projects/<project>/locations/europe-west3/inspectTemplates/<id>
+   ```
+
 ### 4. Spustenie aplikácie
 ```bash
 # Spustenie všetkých služieb
