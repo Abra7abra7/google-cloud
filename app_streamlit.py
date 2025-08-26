@@ -136,10 +136,16 @@ def handle_new_event_submission(event_id, sensitive_files, general_files):
         return
 
     try:
-        event_dir = os.path.join(EVENTS_BASE_DIR, event_id)
+        # Návrh jedinečného názvu, ak priečinok už existuje
+        base_event_id = event_id
+        event_dir = os.path.join(EVENTS_BASE_DIR, base_event_id)
         if os.path.exists(event_dir):
-            st.error(f"Udalosť s názvom '{event_id}' už existuje!")
-            return
+            suffix = 2
+            while os.path.exists(os.path.join(EVENTS_BASE_DIR, f"{base_event_id}-{suffix}")):
+                suffix += 1
+            event_id = f"{base_event_id}-{suffix}"
+            event_dir = os.path.join(EVENTS_BASE_DIR, event_id)
+            st.warning(f"Udalosť s názvom '{base_event_id}' už existuje. Ukladám ako '{event_id}'.")
 
         # Vytvorenie priečinkov a uloženie súborov
         for file_list, subfolder in [(sensitive_files, "citlive_dokumenty"), (general_files, "vseobecne_dokumenty")]:
@@ -149,7 +155,7 @@ def handle_new_event_submission(event_id, sensitive_files, general_files):
                 for f in file_list:
                     with open(os.path.join(target_dir, f.name), "wb") as out_file:
                         out_file.write(f.getvalue())
-        
+
         st.success(f"Poistná udalosť '{event_id}' bola úspešne vytvorená!")
         st.info("Zoznam udalostí sa aktualizuje...")
         st.rerun()
