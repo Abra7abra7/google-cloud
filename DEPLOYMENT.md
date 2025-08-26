@@ -55,10 +55,10 @@ cd google-cloud
 ### 3. Konfigurácia aplikácie
 ```bash
 # Skopírujte env.example
-cp env.example .env
+cp env.example .env.local
 
-# Upravte .env súbor s vašimi hodnotami
-nano .env
+# Upravte .env.local s vašimi hodnotami
+nano .env.local
 ```
 
 ### 4. Spustenie aplikácie
@@ -82,16 +82,12 @@ docker-compose logs -f claims_ai
 - **Password**: claims_password
 
 ### SQLite (alternatívne)
-Ak nechcete MySQL, upravte `config.ini`:
-```ini
-[database]
-url = sqlite:///claims_ai.db
-```
+Použite v `.env.local` `DATABASE_URL=sqlite:///claims_ai.db`.
 
 ## Monitoring a logy
 
 ### Health checks
-- **Streamlit**: http://localhost:8501
+- **Streamlit**: http://localhost:8502
 - **FastAPI**: http://localhost:8000/health
 - **Swagger**: http://localhost:8000/docs
 
@@ -115,7 +111,7 @@ docker-compose logs nginx
 sudo ufw allow 22    # SSH
 sudo ufw allow 80    # HTTP
 sudo ufw allow 443   # HTTPS
-sudo ufw allow 8501  # Streamlit
+sudo ufw allow 8502  # Streamlit
 sudo ufw allow 8000  # FastAPI
 sudo ufw enable
 ```
@@ -138,8 +134,8 @@ docker-compose exec -T mysql mysql -u root -p claims_ai < backup.sql
 
 ### Aplikácia
 ```bash
-# Backup konfigurácie
-tar -czf config-backup.tar.gz config.ini service-account-key.json
+# Backup konfigurácie (mimo repozitára)
+tar -czf config-backup.tar.gz .env.local service-account-key.json
 
 # Backup dát
 tar -czf data-backup.tar.gz poistne_udalosti/ anonymized_output/ general_output/ raw_ocr_output/ analysis_output/
@@ -148,9 +144,9 @@ tar -czf data-backup.tar.gz poistne_udalosti/ anonymized_output/ general_output/
 ## Troubleshooting
 
 ### Časté problémy
-1. **Port 8501/8000 už používané**
+1. **Port 8502/8000 už používané**
    - Zastavte existujúce služby
-   - Skontrolujte `netstat -tulpn | grep :8501`
+   - Skontrolujte `netstat -tulpn | grep :8502`
 
 2. **Google Cloud autentifikácia**
    - Overte `service-account-key.json`
@@ -158,7 +154,7 @@ tar -czf data-backup.tar.gz poistne_udalosti/ anonymized_output/ general_output/
 
 3. **Databáza nepripojí**
    - Skontrolujte MySQL stav: `docker-compose ps mysql`
-   - Overte credentials v `.env`
+   - Overte credentials v `.env.local`
 
 ### Support
 Pre technickú podporu kontaktujte:

@@ -98,7 +98,7 @@ streamlit run app_streamlit.py --server.port 8502 --server.address 0.0.0.0
 ```
 
 #### 5.2 Prístup k aplikácii
-- **URL**: http://localhost:8501
+- **URL**: http://localhost:8502
 - **Funkcie**:
   - Upload PDF dokumentov
   - Spracovanie poistných udalostí
@@ -209,11 +209,7 @@ google-cloud/
 
 ### MySQL (produkčné)
 1. Vytvorte MySQL databázu
-2. Upravte `config.ini`:
-   ```ini
-   [database]
-   url = mysql+pymysql://user:password@localhost/dbname
-   ```
+2. Do `.env.local` nastavte `DATABASE_URL`, napr. `mysql+pymysql://user:password@localhost:3306/claims_ai`
 3. Inštalujte MySQL driver: `pip install pymysql`
 
 ### Databázové tabuľky
@@ -224,8 +220,8 @@ google-cloud/
 ## Testovanie aplikácie
 
 ### 7.1 Kontrola funkčnosti
-1. **Spustite Streamlit**: `streamlit run app_streamlit.py`
-2. **Spustite FastAPI**: `uvicorn api:app --reload`
+1. **Spustite Streamlit**: `streamlit run app_streamlit.py --server.port 8502 --server.address 0.0.0.0`
+2. **Spustite FastAPI**: `uvicorn api:app --host 0.0.0.0 --port 8000 --reload`
 3. **Otestujte API endpointy** cez Swagger UI
 4. **Upload test PDF** a spracujte ho
 
