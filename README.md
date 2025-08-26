@@ -65,6 +65,12 @@ pip install -r requirements.txt
    VERTEX_AI_LOCATION=europe-west1
    GEMINI_MODEL=gemini-2.0-flash   # alebo gemini-1.5-pro / gemini-1.5-flash
    ANALYSIS_PROMPT=Zhrň kľúčové body z nasledujúcich poistných dokumentov...
+   DOCUMENT_AI_LOCATION=eu
+   DOCUMENT_AI_PROCESSOR_ID=your-processor-id
+   DOCUMENT_AI_MIME_TYPE=application/pdf
+   DLP_LOCATION=europe-west3
+   DLP_DEIDENTIFY_TEMPLATE_ID=projects/<project>/locations/europe-west3/deidentifyTemplates/<template>
+   DLP_INSPECT_TEMPLATE_ID=projects/<project>/locations/europe-west3/inspectTemplates/<template>
    DATABASE_URL=sqlite:///claims_ai.db
    ```
 3. `.env.local` sa načíta automaticky pri štarte aplikácií
@@ -93,12 +99,12 @@ ANALYSIS_PROMPT, DATABASE_URL, STREAMLIT_SERVER_PORT, STREAMLIT_SERVER_ADDRESS, 
 
 #### 5.1 Spustenie aplikácie
 ```bash
-# Streamlit (port 8502)
-streamlit run app_streamlit.py --server.port 8502 --server.address 0.0.0.0
+# Streamlit (port 8501)
+streamlit run app_streamlit.py --server.port 8501 --server.address 0.0.0.0
 ```
 
 #### 5.2 Prístup k aplikácii
-- **URL**: http://localhost:8502
+- **URL**: http://localhost:8501
 - **Funkcie**:
   - Upload PDF dokumentov
   - Spracovanie poistných udalostí
@@ -251,19 +257,19 @@ curl -X POST "http://localhost:8000/anonymize/test-event" \
 
 #### 403 Permission denied
 - Skontrolujte service account JSON kľúč
-- Overte `GOOGLE_APPLICATION_CREDENTIALS` environment variable
+- Overte `GOOGLE_APPLICATION_CREDENTIALS` v `.env.local`
 - Skontrolujte oprávnenia v GCP Console
 
 #### 404 Processor not found
-- Overte `processor_id` v `config.ini`
-- Skontrolujte, či processor existuje v správnom regióne
+- Overte `DOCUMENT_AI_PROCESSOR_ID` v `.env.local`
+- Skontrolujte, či processor existuje v správnom regióne (`DOCUMENT_AI_LOCATION`)
 
 #### 400 API key not valid (Gemini)
-- Skontrolujte `gemini.api_key` v `config.ini`
+- Ak nepoužívate Vertex AI (`USE_VERTEX_AI=0`), skontrolujte `GEMINI_API_KEY` v `.env.local`
 - Overte platnosť API kľúča
 
 #### Databázové chyby
-- Skontrolujte `database.url` v `config.ini`
+- Skontrolujte `DATABASE_URL` v `.env.local`
 - Pre MySQL overte pripojenie a oprávnenia
 
 ### Logy

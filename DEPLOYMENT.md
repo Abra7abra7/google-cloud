@@ -87,7 +87,7 @@ Použite v `.env.local` `DATABASE_URL=sqlite:///claims_ai.db`.
 ## Monitoring a logy
 
 ### Health checks
-- **Streamlit**: http://localhost:8502
+- **Streamlit**: http://localhost:8501
 - **FastAPI**: http://localhost:8000/health
 - **Swagger**: http://localhost:8000/docs
 
@@ -111,7 +111,7 @@ docker-compose logs nginx
 sudo ufw allow 22    # SSH
 sudo ufw allow 80    # HTTP
 sudo ufw allow 443   # HTTPS
-sudo ufw allow 8502  # Streamlit
+sudo ufw allow 8501  # Streamlit
 sudo ufw allow 8000  # FastAPI
 sudo ufw enable
 ```

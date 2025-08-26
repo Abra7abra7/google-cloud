@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime as dt
 import os
-import configparser
 from typing import Optional
 
 from sqlalchemy import create_engine, String, Text, DateTime, Integer

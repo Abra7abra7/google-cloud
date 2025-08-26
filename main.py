@@ -17,8 +17,8 @@ PROJECT_ID = os.getenv('GOOGLE_CLOUD_PROJECT')
 DOC_AI_LOCATION = os.getenv('DOCUMENT_AI_LOCATION', 'eu')
 PROCESSOR_ID = os.getenv('DOCUMENT_AI_PROCESSOR_ID')
 DLP_TEMPLATE_ID = os.getenv('DLP_DEIDENTIFY_TEMPLATE_ID')
-DLF_LOCATION = os.getenv('DLP_LOCATION', 'europe-west3')
-DLF_INSPECT_TEMPLATE_ID = (os.getenv('DLP_INSPECT_TEMPLATE_ID') or '').strip()
+DLP_LOCATION = os.getenv('DLP_LOCATION', 'europe-west3')
+DLP_INSPECT_TEMPLATE_ID = (os.getenv('DLP_INSPECT_TEMPLATE_ID') or '').strip()
 MIME_TYPE = os.getenv('DOCUMENT_AI_MIME_TYPE', 'application/pdf')
 
 if not PROJECT_ID:
@@ -63,7 +63,7 @@ def anonymize_text(
     os.environ['GOOGLE_CLOUD_PROJECT'] = project_id
     
     dlp_client = dlp_v2.DlpServiceClient()
-    parent = f"projects/{project_id}/locations/{DLF_LOCATION}"
+    parent = f"projects/{project_id}/locations/{DLP_LOCATION}"
 
     # Zostavenie požiadavky s voliteľnou inspect šablónou
     request_kwargs = {
@@ -71,8 +71,8 @@ def anonymize_text(
         "deidentify_template_name": dlp_template_id,
         "item": {"value": text_to_anonymize},
     }
-    if DLF_INSPECT_TEMPLATE_ID:
-        request_kwargs["inspect_template_name"] = DLF_INSPECT_TEMPLATE_ID
+    if DLP_INSPECT_TEMPLATE_ID:
+        request_kwargs["inspect_template_name"] = DLP_INSPECT_TEMPLATE_ID
 
     request = dlp_v2.DeidentifyContentRequest(**request_kwargs)
     response = dlp_client.deidentify_content(request=request)
