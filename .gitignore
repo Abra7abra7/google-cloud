@@ -1,3 +1,21 @@
+.venv/
+node_modules/
+service-account-key.json
+.env.local
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+build/
+dist/
+.pytest_cache/
+.DS_Store
+.idea/
+.vscode/
 # Python
 __pycache__/
 *.py[cod]

@@ -5,6 +5,22 @@ Všetky dôležité zmeny v tomto projekte budú dokumentované v tomto súbore.
 Formát je založený na [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 a tento projekt sa riadi [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-08-28
+
+### Pridané
+- Endpoint `POST /inspect/{event_id}` pre DLP Inspect nad textom alebo RAW OCR súborom
+- OpenAPI príklady (examples) pre hlavné request modely (anonymize, single/batch analysis, inspect)
+- Postman kolekcia a lokálne prostredie: `postman/claims-ai.postman_collection.json`, `postman/claims-ai.local_environment.json`
+
+### Zmenené
+- `requirements.txt`: pridané `python-multipart` (upload endpoint)
+- README: doplnené curl príklady pre všetky endpointy vrátane Inspect
+
+### Opravené
+- Chýbajúca závislosť pre multipart upload (FastAPI požadovala `python-multipart`)
+
+---
+
 ## [1.0.0] - 2025-08-25
 
 ### Pridané
@@ -31,6 +47,9 @@ a tento projekt sa riadi [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Zjednotený jediný zdroj pravdy pre konfiguráciu cez `.env.local` (odstránené zmienky o `config.ini`)
 - Zjednotený port Streamlit na 8501 naprieč dokumentáciou
 - Doplnené env premenné pre Document AI a DLP v README
+- **DLP anonymizácia**: Funkčné šablóny s InfoTypes a transformáciami
+- **UI vylepšenia**: Zvýraznenie PII nálezov a anonymizovaných častí
+- **Dokumentácia**: Aktualizované troubleshooting a deployment guide pre DLP
 
 ### Opravené
 - Google Cloud projekt ID cache problém

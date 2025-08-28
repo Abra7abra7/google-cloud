@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import os
 from dotenv import load_dotenv
 
@@ -26,13 +26,54 @@ class OCRRequest(BaseModel):
 class AnonymizeRequest(BaseModel):
     filename: str | None = None
     text: str | None = None
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"filename": "document.pdf"},
+                {"text": "Ján Novák, nar. 01.01.1980, rodné číslo 800101/1234"}
+            ]
+        }
+    }
 
 class SingleAnalysisRequest(BaseModel):
     filename: str
     prompt: str | None = None
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"filename": "_CS_DR_1016090623_M_T123_14082024 (1).txt", "prompt": "Zhrň hlavné body a poistné sumy."}
+            ]
+        }
+    }
 
 class BatchAnalysisRequest(BaseModel):
     prompt: str | None = None
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"prompt": "Zhrň kľúčové body z celého spisu."},
+                {}
+            ]
+        }
+    }
+
+class InspectRequest(BaseModel):
+    filename: str | None = None
+    text: str | None = None
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"filename": "document.txt"},
+                {"text": "Peter Popluhár, tel: +421 900 123 456, email peter@example.com"}
+            ]
+        }
+    }
+
+class InspectFinding(BaseModel):
+    info_type: str = Field(..., examples=["PERSON_NAME"]) 
+    start: int = Field(..., examples=[10])
+    end: int = Field(..., examples=[22])
+    quote: str = Field(..., examples=["Peter Popluhár"])
 
 
 class PromptCreate(BaseModel):
@@ -142,6 +183,28 @@ def anonymize_event_text(event_id: str, req: AnonymizeRequest):
     try:
         anon = anonymize_text(PROJECT_ID, text, DLP_TEMPLATE_ID)
         return {"anonymized_preview": anon[:1000]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/inspect/{event_id}", response_model=list[InspectFinding])
+def inspect_event_text(event_id: str, req: InspectRequest):
+    """DLP Inspect nad textom alebo nad uloženým RAW OCR textom (ak sa zadá filename)."""
+    # Vyčistenie názvu udalosti od medzier
+    event_id = event_id.strip()
+    if not req.text and not req.filename:
+        raise HTTPException(status_code=400, detail="Poskytnite filename alebo text na kontrolu.")
+    text = req.text
+    if text is None and req.filename:
+        # načítaj text zo súboru v raw_ocr_output
+        path = os.path.join(RAW_OCR_DIR, event_id, os.path.splitext(req.filename)[0] + ".txt")
+        if not os.path.exists(path):
+            raise HTTPException(status_code=404, detail="RAW OCR text neexistuje. Spustite OCR najprv.")
+        with open(path, 'r', encoding='utf-8') as f:
+            text = f.read()
+    try:
+        findings = inspect_text_for_pii(PROJECT_ID, text)
+        return findings
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

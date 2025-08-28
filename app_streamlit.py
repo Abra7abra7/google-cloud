@@ -1,4 +1,5 @@
 import os
+import html
 from dotenv import load_dotenv
 import streamlit as st
 import datetime
@@ -11,11 +12,29 @@ load_dotenv(override=False)
 
 # Importujeme refaktorované funkcie z našich skriptov
 from main import run_processing
+from main import inspect_text_for_pii
 from analyza import run_analysis
-from db import get_session, DocumentText, AnalysisResult, ClaimEvent, Prompt, PromptRun
+from db import get_session, DocumentText, AnalysisResult, ClaimEvent, Prompt, PromptRun, init_db
 
 # --- Konfigurácia Streamlit aplikácie ---
 st.set_page_config(page_title="Analýza Poistných Udalostí", layout="wide")
+
+# Jemné vizuálne vylepšenia
+st.markdown(
+    """
+    <style>
+      /* Zmenšenie vertikálnych medzier */
+      .block-container { padding-top: 1.2rem; padding-bottom: 1.2rem; }
+      /* Zvýraznenie metrík */
+      div[data-testid="stMetricValue"] { font-weight: 700; }
+      /* Krajšie expander hlavičky */
+      details > summary { font-size: 0.98rem; }
+      /* Odstupy medzi sekciami */
+      hr { margin: 0.8rem 0 1rem 0; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 st.title("Nástroj na analýzu poistných udalostí")
 st.markdown("Táto aplikácia automatizuje spracovanie a analýzu dokumentov z poistných udalostí.")
@@ -34,6 +53,22 @@ def get_available_events(base_dir: str):
         st.error(f"Hlavný priečinok pre udalosti '{base_dir}' nebol nájdený!")
         return []
     return sorted([d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))])
+
+def get_global_metrics():
+    """Vráti počty udalostí, dokumentov a analýz pre prehľadové metriky."""
+    try:
+        session = get_session()
+        if session is None:
+            return 0, 0, 0
+        try:
+            total_events = session.query(ClaimEvent).count()
+            total_docs = session.query(DocumentText).count()
+            total_analysis = session.query(AnalysisResult).count()
+            return total_events, total_docs, total_analysis
+        finally:
+            session.close()
+    except Exception:
+        return 0, 0, 0
 
 def read_file_content(file_path: str) -> str:
     """Bezpečne načíta obsah textového súboru."""
@@ -85,6 +120,8 @@ def create_new_event_section():
             if submitted:
                 handle_new_event_submission(new_event_id, sensitive_files, general_files)
 
+    st.markdown("---")
+
 def handle_new_event_submission(event_id, sensitive_files, general_files):
     """Spracuje logiku pre vytvorenie novej udalosti po odoslaní formulára."""
     if not event_id:
@@ -101,10 +138,16 @@ def handle_new_event_submission(event_id, sensitive_files, general_files):
         return
 
     try:
-        event_dir = os.path.join(EVENTS_BASE_DIR, event_id)
+        # Návrh jedinečného názvu, ak priečinok už existuje
+        base_event_id = event_id
+        event_dir = os.path.join(EVENTS_BASE_DIR, base_event_id)
         if os.path.exists(event_dir):
-            st.error(f"Udalosť s názvom '{event_id}' už existuje!")
-            return
+            suffix = 2
+            while os.path.exists(os.path.join(EVENTS_BASE_DIR, f"{base_event_id}-{suffix}")):
+                suffix += 1
+            event_id = f"{base_event_id}-{suffix}"
+            event_dir = os.path.join(EVENTS_BASE_DIR, event_id)
+            st.warning(f"Udalosť s názvom '{base_event_id}' už existuje. Ukladám ako '{event_id}'.")
 
         # Vytvorenie priečinkov a uloženie súborov
         for file_list, subfolder in [(sensitive_files, "citlive_dokumenty"), (general_files, "vseobecne_dokumenty")]:
@@ -114,7 +157,7 @@ def handle_new_event_submission(event_id, sensitive_files, general_files):
                 for f in file_list:
                     with open(os.path.join(target_dir, f.name), "wb") as out_file:
                         out_file.write(f.getvalue())
-        
+
         st.success(f"Poistná udalosť '{event_id}' bola úspešne vytvorená!")
         st.info("Zoznam udalostí sa aktualizuje...")
         st.rerun()
@@ -138,14 +181,46 @@ def display_results(event_id):
         run_full_process(event_id)
 
 def display_analysis_tabs(event_id, result_path):
-    """Zobrazí výsledky v záložkách (Finálna analýza, Detailné výstupy, DB prehľad)."""
-    tab1, tab2, tab3 = st.tabs(["Finálna Analýza", "Detailné výstupy (Human-in-the-loop)", "DB prehľad"])
+    """Zobrazí výsledky v záložkách (Finálna analýza, Detailné výstupy, DB prehľad).
+    Finálna analýza = posledná uložená verzia v DB (zdroj pravdy). Súborová verzia je iba náhľad.
+    """
+    tab1, tab2, tab3 = st.tabs(["Finálna Analýza (uložené)", "Detailné výstupy (Human-in-the-loop)", "DB prehľad"])
 
     with tab1:
-        st.subheader("Súhrnná analýza (Gemini)")
-        analysis_content = read_file_content(result_path)
-        st.text_area("Analyzovaný text", analysis_content, height=400)
-        st.download_button("Stiahnuť analýzu", analysis_content, os.path.basename(result_path), 'text/plain')
+        st.subheader("Súhrnná analýza – uložené v DB")
+        # Najprv sa pokúsime zobraziť najnovší záznam z DB
+        from db import get_session, AnalysisResult
+        db_text = None
+        try:
+            session = get_session()
+            if session is not None:
+                try:
+                    # posledný záznam pre udalosť podľa created_at (alebo id)
+                    record = (
+                        session.query(AnalysisResult)
+                        .filter_by(event_id=event_id)
+                        .order_by(AnalysisResult.id.desc())
+                        .first()
+                    )
+                    if record:
+                        db_text = record.summary_text or ""
+                finally:
+                    session.close()
+        except Exception:
+            db_text = None
+
+        if db_text:
+            st.text_area("Uložená analýza (DB)", db_text, height=400, key=f"db_summary_{event_id}")
+            st.caption("Zdroj: tabuľka analysis_results")
+        else:
+            st.info("V DB zatiaľ nie je uložená žiadna analýza pre túto udalosť.")
+
+        # Ak existuje aj súborová kópia, zobrazíme ju ako doplnkový náhľad
+        if os.path.exists(result_path):
+            file_content = read_file_content(result_path)
+            with st.expander("Zobraziť súborový náhľad analýzy (posledný beh)"):
+                st.text_area("Náhľad zo súboru", file_content, height=300, key=f"file_summary_{event_id}")
+                st.download_button("Stiahnuť analýzu (súbor)", file_content, os.path.basename(result_path), 'text/plain')
 
     with tab2:
         display_detailed_outputs(event_id)
@@ -157,39 +232,81 @@ def display_detailed_outputs(event_id):
     """Zobrazí detailné porovnanie OCR vs. anonymizovaného textu."""
     st.subheader("Kontrola medzikrokov spracovania")
 
+    # Pomocná funkcia na zvýraznenie rozdielov medzi OCR a anonymizovaným textom
+    def highlight_differences(original_text: str, anonymized_text: str) -> tuple[str, str, int]:
+        """Vytvorí HTML s vyznačením rozdielov. Vracia (html_raw, html_anon, diff_count)."""
+        sm = difflib.SequenceMatcher(a=original_text, b=anonymized_text)
+        parts_raw: list[str] = []
+        parts_anon: list[str] = []
+        diff_count = 0
+        for tag, i1, i2, j1, j2 in sm.get_opcodes():
+            a_seg = original_text[i1:i2]
+            b_seg = anonymized_text[j1:j2]
+            if tag == 'equal':
+                parts_raw.append(a_seg)
+                parts_anon.append(b_seg)
+            elif tag in ('replace', 'delete', 'insert'):
+                # zvýrazníme rozdiely; počítame ako diff položky
+                diff_count += 1
+                if a_seg:
+                    parts_raw.append(f"<mark style='background:#ffe8e8'>{html.escape(a_seg)}</mark>")
+                if b_seg:
+                    parts_anon.append(f"<mark style='background:#e8ffe8'>{html.escape(b_seg)}</mark>")
+        # HTML výstup
+        html_raw = "<div style='white-space:pre-wrap; font-family:monospace'>" + ''.join(parts_raw) + "</div>"
+        html_anon = "<div style='white-space:pre-wrap; font-family:monospace'>" + ''.join(parts_anon) + "</div>"
+        return html_raw, html_anon, diff_count
+
     # Citlivé dokumenty
     st.markdown("#### Citlivé dokumenty")
     raw_ocr_event_dir = os.path.join(RAW_OCR_DIR, event_id)
     anonymized_event_dir = os.path.join(ANONYMIZED_DIR, event_id)
     sensitive_docs = glob.glob(os.path.join(raw_ocr_event_dir, '*.txt'))
     if not sensitive_docs:
-        st.info("Nenájdené žiadne spracované citlivé dokumenty.")
+        st.info("Nenájdené žiadne spracované citlivé dokumenty. Nahrajte PDF do priečinka citlivé dokumenty a spustite spracovanie.")
     else:
         for doc_path in sensitive_docs:
             doc_name = os.path.basename(doc_path)
             with st.expander(f"Dokument: {doc_name}"):
                 col_raw, col_anon = st.columns(2)
-                raw_content = read_file_content(doc_path)
-                anonymized_content = read_file_content(os.path.join(anonymized_event_dir, doc_name))
-                with col_raw: st.text_area("Pôvodný text (OCR)", raw_content, height=300, key=f"raw_{doc_name}")
-                with col_anon: st.text_area("Anonymizovaný text", anonymized_content, height=300, key=f"anon_{doc_name}")
-
-                diff = difflib.unified_diff(
-                    (raw_content or "").splitlines(),
-                    (anonymized_content or "").splitlines(),
-                    fromfile='OCR', tofile='ANON', lineterm=''
-                )
-                diff_text = '\n'.join(diff)
-                if diff_text:
-                    st.markdown("**Zvýraznené rozdiely (diff):**")
-                    st.code(diff_text, language='diff')
+                raw_content = read_file_content(doc_path) or ""
+                anonymized_content = read_file_content(os.path.join(anonymized_event_dir, doc_name)) or ""
+                # DLP Inspect – zvýraznenie PII v raw OCR texte, ak je dostupný inspect template
+                pii_findings = []
+                try:
+                    from main import PROJECT_ID as _PID
+                    pii_findings = inspect_text_for_pii(_PID, raw_content)
+                except Exception:
+                    pii_findings = []
+                # zvýraznenie rozdielov (inline highlighting)
+                html_raw, html_anon, diff_count = highlight_differences(raw_content, anonymized_content)
+                with col_raw:
+                    st.markdown("**Pôvodný text (OCR)**", help="Text extrahovaný Document AI")
+                    # Ak máme PII nálezy, zvýrazníme ich v raw texte (žlté pozadie)
+                    if pii_findings:
+                        segments = []
+                        last = 0
+                        for f in sorted(pii_findings, key=lambda x: x["start"]):
+                            s, e = f["start"], f["end"]
+                            segments.append(html.escape(raw_content[last:s]))
+                            segments.append(f"<mark style='background:#fff3cd' title='{f['info_type']}'>" + html.escape(raw_content[s:e]) + "</mark>")
+                            last = e
+                        segments.append(html.escape(raw_content[last:]))
+                        raw_html_with_pii = "<div style='white-space:pre-wrap; font-family:monospace'>" + ''.join(segments) + "</div>"
+                        st.markdown(raw_html_with_pii, unsafe_allow_html=True)
+                    else:
+                        st.markdown(html_raw, unsafe_allow_html=True)
+                with col_anon:
+                    st.markdown("**Anonymizovaný text**", help="Text po Cloud DLP de-identifikácii")
+                    st.markdown(html_anon, unsafe_allow_html=True)
+                st.caption(f"Počet odlišných úsekov: {diff_count}")
 
     # Všeobecné dokumenty
     st.markdown("#### Všeobecné dokumenty")
     general_event_dir = os.path.join(GENERAL_DIR, event_id)
     general_docs = glob.glob(os.path.join(general_event_dir, '*.txt'))
     if not general_docs:
-        st.info("Nenájdené žiadne spracované všeobecné dokumenty.")
+        st.info("Nenájdené žiadne spracované všeobecné dokumenty. Nahrajte PDF do priečinka všeobecné dokumenty a spustite spracovanie.")
     else:
         for doc_path in general_docs:
             doc_name = os.path.basename(doc_path)
@@ -207,9 +324,10 @@ def display_db_status(event_id: str):
         total_events = session.query(ClaimEvent).count()
         total_docs = session.query(DocumentText).count()
         total_analysis = session.query(AnalysisResult).count()
-        st.markdown(f"- Počet udalostí v DB: **{total_events}**")
-        st.markdown(f"- Počet dokumentov v DB: **{total_docs}**")
-        st.markdown(f"- Počet analýz v DB: **{total_analysis}**")
+        col_a, col_b, col_c = st.columns(3)
+        col_a.metric("Udalosti", total_events)
+        col_b.metric("Dokumenty", total_docs)
+        col_c.metric("Analýzy", total_analysis)
 
         st.markdown("\nZáznamy pre vybranú udalosť:")
         docs = session.query(DocumentText).filter_by(event_id=event_id).all()
@@ -226,15 +344,48 @@ def display_db_status(event_id: str):
         else:
             st.info("Pre túto udalosť zatiaľ nie sú uložené žiadne dokumenty v DB.")
 
-        analyses = session.query(AnalysisResult).filter_by(event_id=event_id).all()
+        analyses = (
+            session.query(AnalysisResult)
+            .filter_by(event_id=event_id)
+            .order_by(AnalysisResult.id.desc())
+            .all()
+        )
         if analyses:
-            for a in analyses:
-                with st.expander("Výsledok analýzy v DB"):
+            st.markdown("#### Výsledky analýz pre udalosť")
+            st.caption("Najnovší záznam je považovaný za Finálnu Analýzu (uloženú).")
+            for idx, a in enumerate(analyses):
+                label = "(posledná) " if idx == 0 else ""
+                with st.expander(f"{label}Výsledok analýzy v DB – id={a.id}, model={a.model}, čas={getattr(a,'created_at','')}"):
                     st.write({
+                        "id": a.id,
+                        "event_id": a.event_id,
                         "model": a.model,
                         "created_at": str(getattr(a, 'created_at', '')),
-                        "summary_preview": (a.summary_text or '')[:400] + ("..." if a.summary_text and len(a.summary_text) > 400 else ""),
+                        "summary_preview": (a.summary_text or '')[:600] + ("..." if a.summary_text and len(a.summary_text) > 600 else ""),
                     })
+
+            col_del1, col_del2 = st.columns(2)
+            with col_del1:
+                if st.button("Vymazať všetky analýzy pre túto udalosť"):
+                    try:
+                        session.query(AnalysisResult).filter_by(event_id=event_id).delete()
+                        session.commit()
+                        st.success("Všetky analýzy boli vymazané.")
+                        st.rerun()
+                    except Exception as e:
+                        session.rollback()
+                        st.error(f"Chyba pri mazaní: {e}")
+            with col_del2:
+                if len(analyses) > 1 and st.button("Ponechať iba poslednú, ostatné vymazať"):
+                    try:
+                        keep_id = analyses[0].id
+                        session.query(AnalysisResult).filter(AnalysisResult.event_id==event_id, AnalysisResult.id!=keep_id).delete()
+                        session.commit()
+                        st.success("Staršie analýzy boli vymazané, ponechaná posledná.")
+                        st.rerun()
+                    except Exception as e:
+                        session.rollback()
+                        st.error(f"Chyba pri mazaní: {e}")
         else:
             st.info("Pre túto udalosť zatiaľ nie je uložená žiadna analýza v DB.")
     finally:
@@ -398,6 +549,9 @@ def manage_prompts_section():
 # --- Hlavná logika aplikácie ---
 def main():
     """Hlavný beh Streamlit aplikácie."""
+    # Inicializácia databázy pri spustení
+    init_db()
+    
     # Sidebar pre navigáciu
     st.sidebar.title("Navigácia")
     page = st.sidebar.radio("Vyberte stránku:", ["Poistné udalosti", "Správa promptov"])

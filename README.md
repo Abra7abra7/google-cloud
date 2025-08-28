@@ -136,6 +136,7 @@ uvicorn api:app --host 0.0.0.0 --port 8000 --reload
 - `POST /upload/{event_id}` - Upload PDF súboru
 - `POST /ocr/{event_id}` - OCR spracovanie PDF
 - `POST /anonymize/{event_id}` - Anonymizácia textu
+- `POST /inspect/{event_id}` - DLP Inspect nad textom alebo súborom (nové)
 - `POST /analysis/single/{event_id}` - Analýza jedného dokumentu
 - `POST /analysis/batch/{event_id}` - Analýza všetkých dokumentov v udalosti
 - `POST /process/{event_id}` - Kompletné spracovanie (OCR + anonymizácia + analýza)
@@ -177,12 +178,43 @@ curl -X POST "http://localhost:8000/anonymize/test-event" \
   -d '{"filename": "document.txt"}'
 ```
 
+##### DLP Inspect (nové)
+```bash
+# A) Kontrola citlivých údajov v texte
+curl -X POST "http://localhost:8000/inspect/test-event" \
+  -H "accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Ján Novák, tel: +421 900 123 456, email: jan.novak@example.com"}'
+
+# B) Kontrola nad uloženým RAW OCR textom (odvodí sa z PDF názvu)
+curl -X POST "http://localhost:8000/inspect/test-event" \
+  -H "accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{"filename": "document.pdf"}'
+```
+
 ##### Identifikácia citlivých dát
 ```bash
 curl -X POST "http://localhost:8000/inspect/test-event" \
   -H "accept: application/json" \
   -H "Content-Type: application/json" \
   -d '{"filename": "document.txt"}'
+```
+
+##### Analýza jedného dokumentu
+```bash
+curl -X POST "http://localhost:8000/analysis/single/test-event" \
+  -H "accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{"filename": "document.txt", "prompt": "Zhrň hlavné body"}'
+```
+
+##### Analýza batch
+```bash
+curl -X POST "http://localhost:8000/analysis/batch/test-event" \
+  -H "accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Zhrň kľúčové body z celého spisu"}'
 ```
 
 ## Štruktúra projektu
@@ -295,6 +327,9 @@ export DATABASE_URL="mysql+pymysql://user:password@host/dbname"
 - Firewall pravidlá
 
 ### 4. Monitoring
+- **DLP anonymizácia**: Overte správnosť šablón a prahov
+- **Document AI**: Kontrola processor stavu a kvót
+- **Vertex AI**: Monitoring token usage a rate limits
 - Logy aplikácie
 - Metriky databázy
 - GCP monitoring
