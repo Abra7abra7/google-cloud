@@ -134,8 +134,8 @@ def ocr_and_anonymize(file_path: str, raw_ocr_dir: str):
     session = get_session()
     if session is not None:
         try:
-            # Získanie event_id z cesty k raw_ocr_dir a vyčistenie od medzier
-            event_id = os.path.basename(os.path.dirname(raw_ocr_dir)).strip()
+            # Získanie event_id správne z názvu priečinka raw_ocr_dir (..../raw_ocr_output/{event_id})
+            event_id = os.path.basename(raw_ocr_dir).strip()
             doc = DocumentText(
                 event_id=event_id,
                 filename=os.path.basename(file_path),

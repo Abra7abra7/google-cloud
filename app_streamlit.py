@@ -14,7 +14,7 @@ load_dotenv(override=False)
 from main import run_processing
 from main import inspect_text_for_pii
 from analyza import run_analysis
-from db import get_session, DocumentText, AnalysisResult, ClaimEvent, Prompt, PromptRun
+from db import get_session, DocumentText, AnalysisResult, ClaimEvent, Prompt, PromptRun, init_db
 
 # --- Konfigurácia Streamlit aplikácie ---
 st.set_page_config(page_title="Analýza Poistných Udalostí", layout="wide")
@@ -181,14 +181,46 @@ def display_results(event_id):
         run_full_process(event_id)
 
 def display_analysis_tabs(event_id, result_path):
-    """Zobrazí výsledky v záložkách (Finálna analýza, Detailné výstupy, DB prehľad)."""
-    tab1, tab2, tab3 = st.tabs(["Finálna Analýza", "Detailné výstupy (Human-in-the-loop)", "DB prehľad"])
+    """Zobrazí výsledky v záložkách (Finálna analýza, Detailné výstupy, DB prehľad).
+    Finálna analýza = posledná uložená verzia v DB (zdroj pravdy). Súborová verzia je iba náhľad.
+    """
+    tab1, tab2, tab3 = st.tabs(["Finálna Analýza (uložené)", "Detailné výstupy (Human-in-the-loop)", "DB prehľad"])
 
     with tab1:
-        st.subheader("Súhrnná analýza (Gemini)")
-        analysis_content = read_file_content(result_path)
-        st.text_area("Analyzovaný text", analysis_content, height=400)
-        st.download_button("Stiahnuť analýzu", analysis_content, os.path.basename(result_path), 'text/plain')
+        st.subheader("Súhrnná analýza – uložené v DB")
+        # Najprv sa pokúsime zobraziť najnovší záznam z DB
+        from db import get_session, AnalysisResult
+        db_text = None
+        try:
+            session = get_session()
+            if session is not None:
+                try:
+                    # posledný záznam pre udalosť podľa created_at (alebo id)
+                    record = (
+                        session.query(AnalysisResult)
+                        .filter_by(event_id=event_id)
+                        .order_by(AnalysisResult.id.desc())
+                        .first()
+                    )
+                    if record:
+                        db_text = record.summary_text or ""
+                finally:
+                    session.close()
+        except Exception:
+            db_text = None
+
+        if db_text:
+            st.text_area("Uložená analýza (DB)", db_text, height=400, key=f"db_summary_{event_id}")
+            st.caption("Zdroj: tabuľka analysis_results")
+        else:
+            st.info("V DB zatiaľ nie je uložená žiadna analýza pre túto udalosť.")
+
+        # Ak existuje aj súborová kópia, zobrazíme ju ako doplnkový náhľad
+        if os.path.exists(result_path):
+            file_content = read_file_content(result_path)
+            with st.expander("Zobraziť súborový náhľad analýzy (posledný beh)"):
+                st.text_area("Náhľad zo súboru", file_content, height=300, key=f"file_summary_{event_id}")
+                st.download_button("Stiahnuť analýzu (súbor)", file_content, os.path.basename(result_path), 'text/plain')
 
     with tab2:
         display_detailed_outputs(event_id)
@@ -312,15 +344,48 @@ def display_db_status(event_id: str):
         else:
             st.info("Pre túto udalosť zatiaľ nie sú uložené žiadne dokumenty v DB.")
 
-        analyses = session.query(AnalysisResult).filter_by(event_id=event_id).all()
+        analyses = (
+            session.query(AnalysisResult)
+            .filter_by(event_id=event_id)
+            .order_by(AnalysisResult.id.desc())
+            .all()
+        )
         if analyses:
-            for a in analyses:
-                with st.expander("Výsledok analýzy v DB"):
+            st.markdown("#### Výsledky analýz pre udalosť")
+            st.caption("Najnovší záznam je považovaný za Finálnu Analýzu (uloženú).")
+            for idx, a in enumerate(analyses):
+                label = "(posledná) " if idx == 0 else ""
+                with st.expander(f"{label}Výsledok analýzy v DB – id={a.id}, model={a.model}, čas={getattr(a,'created_at','')}"):
                     st.write({
+                        "id": a.id,
+                        "event_id": a.event_id,
                         "model": a.model,
                         "created_at": str(getattr(a, 'created_at', '')),
-                        "summary_preview": (a.summary_text or '')[:400] + ("..." if a.summary_text and len(a.summary_text) > 400 else ""),
+                        "summary_preview": (a.summary_text or '')[:600] + ("..." if a.summary_text and len(a.summary_text) > 600 else ""),
                     })
+
+            col_del1, col_del2 = st.columns(2)
+            with col_del1:
+                if st.button("Vymazať všetky analýzy pre túto udalosť"):
+                    try:
+                        session.query(AnalysisResult).filter_by(event_id=event_id).delete()
+                        session.commit()
+                        st.success("Všetky analýzy boli vymazané.")
+                        st.rerun()
+                    except Exception as e:
+                        session.rollback()
+                        st.error(f"Chyba pri mazaní: {e}")
+            with col_del2:
+                if len(analyses) > 1 and st.button("Ponechať iba poslednú, ostatné vymazať"):
+                    try:
+                        keep_id = analyses[0].id
+                        session.query(AnalysisResult).filter(AnalysisResult.event_id==event_id, AnalysisResult.id!=keep_id).delete()
+                        session.commit()
+                        st.success("Staršie analýzy boli vymazané, ponechaná posledná.")
+                        st.rerun()
+                    except Exception as e:
+                        session.rollback()
+                        st.error(f"Chyba pri mazaní: {e}")
         else:
             st.info("Pre túto udalosť zatiaľ nie je uložená žiadna analýza v DB.")
     finally:
@@ -484,6 +549,9 @@ def manage_prompts_section():
 # --- Hlavná logika aplikácie ---
 def main():
     """Hlavný beh Streamlit aplikácie."""
+    # Inicializácia databázy pri spustení
+    init_db()
+    
     # Sidebar pre navigáciu
     st.sidebar.title("Navigácia")
     page = st.sidebar.radio("Vyberte stránku:", ["Poistné udalosti", "Správa promptov"])
