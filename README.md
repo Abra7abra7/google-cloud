@@ -226,7 +226,8 @@ google-cloud/
 ├── main.py                   # OCR a anonymizácia
 ├── analyza.py                # AI analýza
 ├── db.py                     # Databázové modely
-├── KONFIGURACIA.md           # Zhrnutie konfigurácie (.env.local je zdroj pravdy)
+├── KONFIGURACIA_CHECKLIST.md # Detailný návod na konfiguráciu
+├── check_config.py           # Automatická diagnostika konfigurácie
 ├── requirements.txt          # Python závislosti
 ├── claims-ai.db             # SQLite databáza
 ├── poistne_udalosti/        # Vstupné PDF dokumenty
@@ -255,10 +256,50 @@ google-cloud/
 - `document_texts` - OCR a anonymizované texty
 - `analysis_results` - AI analýzy
 
+## Správa promptov
+
+### Databázové prompty (odporúčané)
+- **Streamlit UI:** Záložka "Správa promptov" - vizuálne vytváranie a úprava
+- **API endpointy:** `/prompts/*` - programatické správa
+- **Aktivácia:** Iba jeden prompt môže byť aktívny súčasne
+- **Verziovanie:** Podpora verzií a histórie behov
+
+### Environment variable fallback
+- **ANALYSIS_PROMPT** v `.env.local` - používa sa ak nie je aktívny databázový prompt
+- **Predvolený prompt:** Automaticky vytvorený pri inicializácii databázy
+
+### Príklady použitia
+```bash
+# Zobraziť všetky prompty
+curl http://localhost:8000/prompts
+
+# Vytvoriť nový prompt
+curl -X POST http://localhost:8000/prompts \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Môj prompt", "content": "Analyzuj...", "is_active": true}'
+```
+
+## Diagnostika konfigurácie
+
+### Automatická kontrola
+```bash
+python check_config.py
+```
+Skontroluje všetky komponenty:
+- Google Cloud credentials
+- Document AI processor
+- Cloud DLP šablóny
+- Vertex AI konfiguráciu
+- Databázové pripojenie
+- Python knižnice
+
+### Manuálna kontrola
+Pozrite si `KONFIGURACIA_CHECKLIST.md` pre detailné inštrukcie.
+
 ## Testovanie aplikácie
 
 ### 7.1 Kontrola funkčnosti
-1. **Spustite Streamlit**: `streamlit run app_streamlit.py --server.port 8502 --server.address 0.0.0.0`
+1. **Spustite Streamlit**: `streamlit run app_streamlit.py --server.port 8501 --server.address 0.0.0.0`
 2. **Spustite FastAPI**: `uvicorn api:app --host 0.0.0.0 --port 8000 --reload`
 3. **Otestujte API endpointy** cez Swagger UI
 4. **Upload test PDF** a spracujte ho
