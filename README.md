@@ -228,6 +228,8 @@ google-cloud/
 ├── db.py                     # Databázové modely
 ├── KONFIGURACIA_CHECKLIST.md # Detailný návod na konfiguráciu
 ├── check_config.py           # Automatická diagnostika konfigurácie
+├── DEPLOYMENT.md             # Detailný návod na nasadenie (infra, Docker, služby)
+├── PROJEKT_ANALYZA.md        # Interná analýza stavu projektu a odporúčania
 ├── requirements.txt          # Python závislosti
 ├── claims-ai.db             # SQLite databáza
 ├── poistne_udalosti/        # Vstupné PDF dokumenty
@@ -237,7 +239,8 @@ google-cloud/
 ├── raw_ocr_output/          # OCR výstup
 ├── anonymized_output/        # Anonymizovaný text
 ├── general_output/           # Všeobecné dokumenty
-└── analysis_output/          # AI analýzy
+├── analysis_output/          # AI analýzy
+└── reports/                  # (voliteľné) reporty a exporty
 ```
 
 ## Databáza
