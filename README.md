@@ -60,7 +60,7 @@ pip install -r requirements.txt
 2. Vyplňte hodnoty (Vertex AI v EU, alias modelu):
    ```bash
    GOOGLE_APPLICATION_CREDENTIALS=service-account-key.json
-   GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
+   GOOGLE_CLOUD_PROJECT=<your-gcp-project-id>
    USE_VERTEX_AI=1
    VERTEX_AI_LOCATION=europe-west1
    GEMINI_MODEL=gemini-2.0-flash   # alebo gemini-1.5-pro / gemini-1.5-flash
@@ -447,7 +447,7 @@ Type=simple
 User=ubuntu
 WorkingDirectory=/home/ubuntu/google-cloud
 Environment=GOOGLE_APPLICATION_CREDENTIALS=/home/ubuntu/google-cloud/service-account-key.json
-Environment=GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
+Environment=GOOGLE_CLOUD_PROJECT=<your-gcp-project-id>
 Environment=GEMINI_API_KEY=your-actual-gemini-api-key-here
 ExecStart=/home/ubuntu/claims-ai-env/bin/streamlit run app_streamlit.py --server.port 8501 --server.address 0.0.0.0
 Restart=always
@@ -467,7 +467,7 @@ Type=simple
 User=ubuntu
 WorkingDirectory=/home/ubuntu/google-cloud
 Environment=GOOGLE_APPLICATION_CREDENTIALS=/home/ubuntu/google-cloud/service-account-key.json
-Environment=GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
+Environment=GOOGLE_CLOUD_PROJECT=<your-gcp-project-id>
 Environment=GEMINI_API_KEY=your-actual-gemini-api-key-here
 ExecStart=/home/ubuntu/claims-ai-env/bin/uvicorn api:app --host 0.0.0.0 --port 8000
 Restart=always
@@ -524,14 +524,14 @@ Start-Process -FilePath "uvicorn" -ArgumentList "api:app --host 0.0.0.0 --port 8
 nssm install ClaimsAIStreamlit "C:\Users\Administrator\claims-ai-env\Scripts\streamlit.exe" "run app_streamlit.py --server.port 8501 --server.address 0.0.0.0"
 nssm set ClaimsAIStreamlit AppDirectory "C:\Users\Administrator\google-cloud"
 nssm set ClaimsAIStreamlit AppEnvironmentExtra GOOGLE_APPLICATION_CREDENTIALS=service-account-key.json
-nssm set ClaimsAIStreamlit AppEnvironmentExtra GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
+nssm set ClaimsAIStreamlit AppEnvironmentExtra GOOGLE_CLOUD_PROJECT=<your-gcp-project-id>
 nssm set ClaimsAIStreamlit AppEnvironmentExtra GEMINI_API_KEY=your-actual-gemini-api-key-here
 
 # 3. Vytvorenie Windows služby pre FastAPI
 nssm install ClaimsAIAPI "C:\Users\Administrator\claims-ai-env\Scripts\uvicorn.exe" "api:app --host 0.0.0.0 --port 8000"
 nssm set ClaimsAIAPI AppDirectory "C:\Users\Administrator\google-cloud"
 nssm set ClaimsAIAPI AppEnvironmentExtra GOOGLE_APPLICATION_CREDENTIALS=service-account-key.json
-nssm set ClaimsAIAPI AppEnvironmentExtra GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
+nssm set ClaimsAIAPI AppEnvironmentExtra GOOGLE_CLOUD_PROJECT=<your-gcp-project-id>
 nssm set ClaimsAIAPI AppEnvironmentExtra GEMINI_API_KEY=your-actual-gemini-api-key-here
 
 # 4. Spustenie služieb
@@ -756,7 +756,7 @@ docker-compose logs -f claims_ai
 #### ⚠️ **KRITICKÉ: Ochrana citlivých údajov**
 - **NIKDY NEUPLOADOVAŤ** `service-account-key.json` na GitHub
 - **NIKDY NEUPLOADOVAŤ** `.env` súbory s API kľúčmi
-- **NIKDY NEUPLOADOVAŤ** `claims-ai-prototype-1-*.json` súbory
+- **NIKDY NEUPLOADOVAŤ** `<project-id>-*.json` súbory
 
 #### Bezpečnostné opatrenia
 - Všetky citlivé súbory sú v `.gitignore`
