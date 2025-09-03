@@ -114,7 +114,7 @@ print(f'Vertex AI: {USE_VERTEX_AI}, Project: {GCP_PROJECT}, Location: {VERTEX_LO
 ### Chyba 3: Neúplné DLP template ID
 ```
 ❌ DLP_DEIDENTIFY_TEMPLATE_ID=template-123
-✅ DLP_DEIDENTIFY_TEMPLATE_ID=projects/claims-ai-prototype-1/locations/europe-west3/deidentifyTemplates/template-123
+✅ DLP_DEIDENTIFY_TEMPLATE_ID=projects/<project-id>/locations/europe-west3/deidentifyTemplates/<template-id>
 ```
 
 ### Chyba 4: Vertex AI bez oprávnení
@@ -127,8 +127,8 @@ print(f'Vertex AI: {USE_VERTEX_AI}, Project: {GCP_PROJECT}, Location: {VERTEX_LO
 
 ```bash
 # Google Cloud Platform
-GOOGLE_APPLICATION_CREDENTIALS=claims-ai-prototype-1-abf1c40fcb2d.json
-GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
+GOOGLE_APPLICATION_CREDENTIALS=<service-account-key.json>
+GOOGLE_CLOUD_PROJECT=<your-gcp-project-id>
 
 # Vertex AI (EU rezidencia)
 USE_VERTEX_AI=1
@@ -142,8 +142,8 @@ DOCUMENT_AI_MIME_TYPE=application/pdf
 
 # Cloud DLP
 DLP_LOCATION=europe-west3
-DLP_DEIDENTIFY_TEMPLATE_ID=projects/claims-ai-prototype-1/locations/europe-west3/deidentifyTemplates/def456ghi789  # SKUTOČNÉ ID!
-DLP_INSPECT_TEMPLATE_ID=projects/claims-ai-prototype-1/locations/europe-west3/inspectTemplates/ghi789jkl012  # SKUTOČNÉ ID!
+DLP_DEIDENTIFY_TEMPLATE_ID=projects/<project-id>/locations/europe-west3/deidentifyTemplates/<template-id>  # SKUTOČNÉ ID!
+DLP_INSPECT_TEMPLATE_ID=projects/<project-id>/locations/europe-west3/inspectTemplates/<template-id>  # SKUTOČNÉ ID!
 
 # Databáza
 DATABASE_URL=sqlite:///claims_ai.db

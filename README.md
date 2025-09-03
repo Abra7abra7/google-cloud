@@ -411,7 +411,7 @@ pip install -r requirements.txt
 
 # 6. Nastavenie environment variables
 export GOOGLE_APPLICATION_CREDENTIALS="service-account-key.json"
-export GOOGLE_CLOUD_PROJECT="claims-ai-prototype-1"
+export GOOGLE_CLOUD_PROJECT="<your-gcp-project-id>"
 export GEMINI_API_KEY="your-actual-gemini-api-key-here"
 
 # 7. Spustenie aplikácie
@@ -509,7 +509,7 @@ pip install -r requirements.txt
 
 # 7. Nastavenie environment variables
 $env:GOOGLE_APPLICATION_CREDENTIALS="service-account-key.json"
-$env:GOOGLE_CLOUD_PROJECT="claims-ai-prototype-1"
+$env:GOOGLE_CLOUD_PROJECT="<your-gcp-project-id>"
 $env:GEMINI_API_KEY="your-actual-gemini-api-key-here"
 
 # 8. Spustenie aplikácie

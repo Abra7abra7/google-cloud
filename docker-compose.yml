@@ -29,7 +29,7 @@ services:
       - "8000:8000"  # FastAPI
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/service-account-key.json
-      - GOOGLE_CLOUD_PROJECT=claims-ai-prototype-1
+      - GOOGLE_CLOUD_PROJECT=<your-gcp-project-id>
       - DATABASE_URL=mysql+pymysql://claims_user:claims_password@mysql:3306/claims_ai
     volumes:
       - ./poistne_udalosti:/app/poistne_udalosti
